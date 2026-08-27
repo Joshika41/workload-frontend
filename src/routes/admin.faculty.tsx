@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import type { Faculty } from "@/lib/erp-data";
 
 export const Route = createFileRoute("/admin/faculty")({
   head: () => ({
@@ -78,6 +79,15 @@ function FacultyManagement() {
   });
   const subjects = syllabus ? syllabus.map((s: any) => s.course_title) : [];
 
+  // Fetch Faculty List
+  const { data: facultyList } = useQuery({
+    queryKey: ["admin-faculty-list"],
+    queryFn: async () => {
+      const res = await api.get<Faculty[]>("/admin/faculty-list");
+      return res.data;
+    }
+  });
+
   // Fetch Admin Preferences
   const { data: preferencesData, isLoading } = useQuery({
     queryKey: ["admin-preferences"],
@@ -87,15 +97,24 @@ function FacultyManagement() {
     }
   });
 
-  const rows: Row[] = preferencesData ? preferencesData.map((p: any) => ({
-    id: p.faculty_id,
-    name: p.name,
-    department: p.department,
-    preferences: p.preferences,
-    status: p.status,
-    allocated: p.allocated,
-    max: p.max
-  })) : [];
+  const rows: Row[] = facultyList ? facultyList.map((f: any) => {
+    // Find all preferences for this faculty
+    const facPrefs = preferencesData ? preferencesData.filter((p: any) => p.faculty_id === (f.id || f.faculty_id)) : [];
+    const subjects = facPrefs.map((p: any) => p.subject_name);
+    // Assume status is pending if any pending, else approved/rejected based on latest
+    const status = facPrefs.length > 0 ? facPrefs[0].status.toLowerCase() : "pending";
+    const allocated = (f.theory_hours || 0) + (f.lab_hours || 0) + (f.incharge_hours || 0);
+    
+    return {
+      id: f.id || f.faculty_id,
+      name: f.name,
+      department: f.department,
+      preferences: subjects,
+      status: status as Status,
+      allocated: allocated,
+      max: f.max_hours_limit || 16
+    };
+  }) : [];
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: Status }) => {
