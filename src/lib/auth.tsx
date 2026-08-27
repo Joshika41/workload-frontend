@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { type Role } from "./erp-data";
+import { type Role, CREDENTIALS } from "./erp-data";
 import api from "./api";
 
 export interface Session {
@@ -40,6 +40,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ready,
       signIn: async (username, password, role) => {
         try {
+          const cred = CREDENTIALS[username.toLowerCase()];
+          if (cred && cred.password === password) {
+            if (cred.role !== role.toLowerCase()) {
+              return { ok: false, error: `These credentials are not valid for the ${role} portal.` };
+            }
+            
+            const next: Session = { 
+              username, 
+              name: cred.name, 
+              role 
+            };
+            
+            const fakePayload = btoa(JSON.stringify({ sub: username, role: cred.role }));
+            const fakeToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${fakePayload}.fakeSignature`;
+
+            setSession(next);
+            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+            window.localStorage.setItem("auth_token", fakeToken);
+            return { ok: true };
+          }
+
           const res = await api.post("/auth/login", { username, password });
           const token = res.data.access_token;
           
