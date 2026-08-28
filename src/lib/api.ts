@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://workload-backend-93n3.onrender.com/api';
+const API_URL = 'https://workload-backend-jozz.onrender.com/api';
 
 export const api = axios.create({
   baseURL: API_URL,
