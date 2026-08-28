@@ -83,6 +83,18 @@ function WorkloadPage() {
     },
   });
 
+  const { data: adminPreferences } = useQuery({
+    queryKey: ["admin-preferences"],
+    queryFn: async () => {
+      try {
+        const res = await api.get("/admin/preferences");
+        return res.data;
+      } catch (e) {
+        return [];
+      }
+    },
+  });
+
   const [rows, setRows] = useState<Faculty[]>([]);
   
   // Sync fetched data into local editable rows state
@@ -121,7 +133,7 @@ function WorkloadPage() {
         max_hours_limit: r.maxHours
       }));
 
-      const endpoint = all ? "/admin/generate-batch" : "/admin/generate-workload";
+      const endpoint = all ? "/generate/timetables" : "/workload/allocate";
       const res = await api.post(endpoint, all ? {} : payload);
       
       window.clearInterval(timer);
@@ -143,16 +155,36 @@ function WorkloadPage() {
         setResults(rows); // fallback
       }
       
-      toast.success(all ? "All timetables generated" : "Workload matrix generated", {
-        description: `Backend Engine Status: ${res.data.status || 'Success'} · ${res.data.total_blocks || 0} blocks created`,
+      toast.success(all ? "Timetables generated successfully!" : "Workload matrix generated", {
+        description: `Backend Engine Status: ${res.data.status || 'Success'}`,
       });
     } catch (err: any) {
       window.clearInterval(timer);
-      toast.error("Generation failed", { description: err.response?.data?.detail || err.message });
+      const detail = err.response?.data?.detail;
+      if (err.response?.status === 400 && detail) {
+        toast.error("Schedule mathematically impossible", { description: detail });
+      } else {
+        toast.error("Generation failed", { description: detail || err.message });
+      }
     } finally {
       setGenerating(false);
     }
   }
+
+  const handleExport = async () => {
+    try {
+      const response = await api.get('/export/timetable', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'university_timetable.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      toast.error("Export failed. Timetables may not be generated yet.");
+    }
+  };
 
   return (
     <PortalShell
@@ -234,6 +266,7 @@ function WorkloadPage() {
                     "Incharge Hours",
                     "Total Limit",
                     "Allocated",
+                    "Constraints"
                   ].map((h) => (
                     <th
                       key={h}
@@ -247,14 +280,14 @@ function WorkloadPage() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={9} className="py-8 text-center text-muted-foreground">
                       <Loader2 className="mx-auto mb-2 size-5 animate-spin" />
                       Loading faculty from database...
                     </td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={9} className="py-8 text-center text-muted-foreground">
                       No faculty found. Please seed the database.
                     </td>
                   </tr>
@@ -263,6 +296,11 @@ function WorkloadPage() {
                   const used = total({ ...f, theoryHours: f.theoryHours ?? f.theory_hours, labHours: f.labHours ?? f.lab_hours, inchargeHours: f.inchargeHours ?? f.incharge_hours });
                   const maxH = f.maxHours ?? f.max_hours_limit;
                   const over = used > maxH;
+                  
+                  const prefs = adminPreferences?.filter((p: any) => p.faculty_id === fid) || [];
+                  const preferCount = prefs.filter((p: any) => p.preference_type === 'PREFER').length;
+                  const avoidCount = prefs.filter((p: any) => p.preference_type === 'AVOID').length;
+
                   return (
                     <tr key={fid} className="border-t border-border">
                       <td className="whitespace-nowrap px-4 py-2.5 font-medium text-foreground">{f.name}</td>
@@ -300,6 +338,16 @@ function WorkloadPage() {
                         <Badge variant={over ? "destructive" : "secondary"} className="font-mono">
                           {used} / {maxH}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {prefs.length > 0 ? (
+                          <div className="flex gap-1.5 text-xs">
+                            {preferCount > 0 && <span className="text-emerald-600 font-medium">{preferCount} Prefer</span>}
+                            {avoidCount > 0 && <span className="text-destructive font-medium">{avoidCount} Avoid</span>}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-xs italic">None</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -341,6 +389,15 @@ function WorkloadPage() {
                 <CalendarCog className="mr-2 size-4" />
               )}
               Generate All Timetables
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={handleExport}
+              className="bg-green-500/10 text-green-600 hover:bg-green-500/20 hover:text-green-700 border-green-500/20"
+            >
+              <FileSpreadsheet className="mr-2 size-4" />
+              Export to Excel
             </Button>
             {!approved ? (
               <span className="text-sm text-muted-foreground">

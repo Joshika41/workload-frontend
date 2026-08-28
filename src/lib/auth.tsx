@@ -1,12 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { type Role, CREDENTIALS } from "./erp-data";
+import type { Role } from "./erp-data";
 import api from "./api";
+import { jwtDecode } from "jwt-decode";
 
 export interface Session {
-  username: string;
+  username: string; // Used as email
   name: string;
   role: Role;
   department?: string;
+  faculty_id?: string;
 }
 
 interface AuthValue {
@@ -38,44 +40,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       ready,
-      signIn: async (username, password, role) => {
+      signIn: async (email, password, role) => {
         try {
-          const cred = CREDENTIALS[username.toLowerCase()];
-          if (cred && cred.password === password) {
-            if (cred.role !== role.toLowerCase()) {
-              return { ok: false, error: `These credentials are not valid for the ${role} portal.` };
-            }
-            
-            const next: Session = { 
-              username, 
-              name: cred.name, 
-              role 
-            };
-            
-            const fakePayload = btoa(JSON.stringify({ sub: username, role: cred.role }));
-            const fakeToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${fakePayload}.fakeSignature`;
-
-            setSession(next);
-            window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-            window.localStorage.setItem("auth_token", fakeToken);
-            return { ok: true };
-          }
-
-          const res = await api.post("/auth/login", { username, password });
+          const res = await api.post("/auth/login", { email, password });
           const token = res.data.access_token;
           
-          // Basic decode payload
-          const payload = JSON.parse(atob(token.split('.')[1]));
+          const payload = jwtDecode<any>(token);
           const backendRole = payload.role.toLowerCase();
           
-          if (backendRole !== role.toLowerCase()) {
+          if (backendRole !== role.toLowerCase() && backendRole !== "master_admin") {
             return { ok: false, error: `These credentials are not valid for the ${role} portal.` };
           }
           
+          // Map backend master_admin back to frontend 'admin' role expectations if necessary
+          const mappedRole = backendRole === "master_admin" ? "admin" : backendRole as Role;
+          
           const next: Session = { 
-            username, 
-            name: username, // Update later if backend returns name
-            role 
+            username: email, 
+            name: email.split('@')[0],
+            role: mappedRole,
+            faculty_id: payload.sub
           };
           
           setSession(next);
@@ -83,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           window.localStorage.setItem("auth_token", token);
           return { ok: true };
         } catch (error: any) {
-          return { ok: false, error: error.response?.data?.detail || "Invalid username or password." };
+          return { ok: false, error: error.response?.data?.detail || "Invalid email or password." };
         }
       },
       signOut: () => {

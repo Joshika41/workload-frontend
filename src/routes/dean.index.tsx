@@ -1,164 +1,113 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AlertTriangle, Users, CalendarCheck, Building2 } from "lucide-react";
-import { PortalShell } from "@/components/PortalShell";
-import { deanNav } from "@/components/portal-nav";
-import { useAuth } from "@/lib/auth";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
+import { createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
+import { PortalShell } from '@/components/PortalShell';
+import { deanNav } from '@/components/portal-nav';
+import { useAuth } from '@/lib/auth';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 
-export const Route = createFileRoute("/dean/")({
-  head: () => ({
-    meta: [
-      { title: "Institutional Oversight · Dean · SRM ERP" },
-      {
-        name: "description",
-        content:
-          "Monitor department-wide faculty workload distribution, resource conflicts and scheduling health across the institution.",
-      },
-      { property: "og:title", content: "Institutional Oversight · Dean · SRM ERP" },
-      {
-        property: "og:description",
-        content: "Department-wide workload distribution and resource conflict monitoring.",
-      },
-    ],
-  }),
+export const Route = createFileRoute('/dean/')({
   component: DeanDashboard,
 });
 
-const CONFLICTS = [
-  { severity: "high", text: "Lab 2 requested twice on Wednesday P4 — MCA II-A and MCA Gen AI B" },
-  { severity: "medium", text: "Dr. Vignesh Balaji projected at 20/20 hours — no buffer capacity" },
-  { severity: "low", text: "Seminar Hall unused Monday to Wednesday afternoons" },
-];
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const PERIODS = [1, 2, 3, 4, 5, 6];
 
 function DeanDashboard() {
-  const { data: facultyData } = useQuery({
-    queryKey: ["faculty-list"],
+  const { session } = useAuth();
+  const [departmentFilter, setDepartmentFilter] = useState('ALL');
+
+  const { data: masterTimetable, isLoading } = useQuery({
+    queryKey: ['master-timetable'],
     queryFn: async () => {
-      const res = await api.get("/admin/faculty-list");
-      return res.data;
+      try {
+        const res = await api.get('/timetable/master');
+        return res.data;
+      } catch (e) {
+        return [];
+      }
     }
   });
 
-  const { data: metadata } = useQuery({
-    queryKey: ["metadata"],
-    queryFn: async () => {
-      const res = await api.get("/timetable/metadata");
-      return res.data;
-    }
-  });
+  const getSlot = (day: string, period: number) => {
+    if (!masterTimetable) return [];
+    return masterTimetable.filter((t: any) => 
+      t.day === day && 
+      t.period === period && 
+      (departmentFilter === 'ALL' || t.department === departmentFilter)
+    );
+  };
 
-  const faculty = facultyData || [];
-  const departments = metadata?.departments || [];
-  const sections = metadata?.sections || [];
-
-  const totalAllocated = faculty.reduce(
-    (a: number, f: any) => a + (f.theory_hours || 0) + (f.lab_hours || 0) + (f.incharge_hours || 0),
-    0,
-  );
-  const totalCapacity = faculty.reduce((a: number, f: any) => a + (f.max_hours_limit || 0), 0);
+  const departments = masterTimetable ? Array.from(new Set(masterTimetable.map((t: any) => t.department))) : [];
 
   return (
     <PortalShell
-      role="dean"
-      title="Institutional Oversight"
-      subtitle="Read-only view across all departments and sections"
+      role='dean'
+      title='Master Timetable Oversight'
+      subtitle='Universal layout mapping all assignments across departments'
       nav={deanNav}
     >
-      <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { label: "Departments", value: departments.length, icon: Building2 },
-            { label: "Faculty Members", value: faculty.length, icon: Users },
-            { label: "Active Sections", value: sections.length, icon: CalendarCheck },
-            { label: "Open Conflicts", value: CONFLICTS.length, icon: AlertTriangle },
-          ].map(({ label, value, icon: Icon }) => (
-            <div
-              key={label}
-              className="rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-card)]"
-            >
-              <div className="mb-3 flex size-9 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                <Icon className="size-4" />
-              </div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {label}
-              </p>
-              <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
-            </div>
-          ))}
+      <div className='rounded-xl border border-border bg-card p-6 shadow-sm'>
+        <div className='flex justify-between items-center mb-6'>
+          <h2 className='text-lg font-semibold text-foreground'>Institutional Matrix</h2>
+          
+          <select 
+            value={departmentFilter} 
+            onChange={(e) => setDepartmentFilter(e.target.value)}
+            className='rounded border border-border bg-background px-3 py-2 text-sm'
+          >
+            <option value='ALL'>All Departments</option>
+            {departments.map((d: any) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-3">
-          <section className="rounded-xl border border-border bg-card shadow-[var(--shadow-card)] lg:col-span-2">
-            <div className="border-b border-border px-5 py-4">
-              <h2 className="text-lg font-semibold text-foreground">Workload Distribution</h2>
-              <p className="text-sm text-muted-foreground">
-                Institution utilisation: {totalAllocated} of {totalCapacity} sanctioned hours
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-sm">
-                <thead>
-                  <tr className="bg-muted text-left">
-                    {["Faculty", "Department", "Theory", "Practical", "Utilisation"].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-                      >
-                        {h}
-                      </th>
-                    ))}
+        <div className='overflow-x-auto mb-6'>
+          {isLoading ? (
+            <p className='text-muted-foreground text-center py-8'>Loading Master Timetable...</p>
+          ) : (
+            <table className='w-full border-collapse'>
+              <thead>
+                <tr>
+                  <th className='p-3 border font-medium text-sm text-muted-foreground bg-muted w-32'>Day</th>
+                  {PERIODS.map(p => (
+                    <th key={p} className='p-3 border font-medium text-sm text-muted-foreground bg-muted'>Period {p}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {DAYS.map(day => (
+                  <tr key={day}>
+                    <td className='p-3 border font-medium text-sm bg-muted/30'>{day}</td>
+                    {PERIODS.map(period => {
+                      const slots = getSlot(day, period);
+                      return (
+                        <td key={period} className='p-2 border text-xs align-top'>
+                          {slots.length === 0 ? (
+                            <span className='text-muted-foreground/50 italic'>Empty</span>
+                          ) : (
+                            <div className='space-y-2 max-h-32 overflow-y-auto pr-1'>
+                              {slots.map((s: any, idx: number) => (
+                                <div key={idx} className='p-1.5 rounded bg-primary/10 border border-primary/20 text-primary-foreground'>
+                                  <div className='font-semibold text-primary truncate'>{s.subject_name}</div>
+                                  <div className='text-muted-foreground truncate'>{s.faculty_name}</div>
+                                  <div className='flex justify-between mt-1 text-[10px] text-muted-foreground'>
+                                    <span>{s.room_no}</span>
+                                    <span>{s.section}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      )
+                    })}
                   </tr>
-                </thead>
-                <tbody>
-                  {faculty.map((f: any) => {
-                    const used = (f.theory_hours || 0) + (f.lab_hours || 0) + (f.incharge_hours || 0);
-                    const pct = f.max_hours_limit ? Math.round((used / f.max_hours_limit) * 100) : 0;
-                    return (
-                      <tr key={f.faculty_id} className="border-t border-border">
-                        <td className="whitespace-nowrap px-4 py-3 font-medium text-foreground">
-                          {f.name}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{f.department}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{f.theory_hours || "-"}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{f.lab_hours || "-"}</td>
-                        <td className="min-w-44 px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <Progress value={pct} className="h-2" />
-                            <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                              {used} / {f.max_hours_limit}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-border bg-card p-5 shadow-[var(--shadow-card)]">
-            <h2 className="text-lg font-semibold text-foreground">Resource Conflicts</h2>
-            <ul className="mt-4 space-y-3">
-              {CONFLICTS.map((c) => (
-                <li key={c.text} className="rounded-lg border border-border bg-background p-3">
-                  <Badge
-                    variant={c.severity === "high" ? "destructive" : "secondary"}
-                    className="mb-2 capitalize"
-                  >
-                    {c.severity}
-                  </Badge>
-                  <p className="text-sm text-foreground">{c.text}</p>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-4 text-xs text-muted-foreground">
-              Dean accounts are read-only. Contact the scheduling admin to resolve conflicts.
-            </p>
-          </section>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </PortalShell>

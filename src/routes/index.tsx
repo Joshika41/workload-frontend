@@ -142,13 +142,14 @@ function RoleSelection() {
           </DialogHeader>
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Email</Label>
               <Input
                 id="username"
+                type="email"
                 value={username}
-                autoComplete="username"
+                autoComplete="email"
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. drpriya"
+                placeholder="e.g. user@example.com"
                 required
               />
             </div>
