@@ -54,33 +54,20 @@ const UPLOADS = [
   { key: "hours", label: "Total Hours Reference", hint: "Max hours by designation" },
 ] as const;
 
-function total(f: Faculty) {
-  return f.theoryHours + f.labHours + f.inchargeHours;
+function total(f: any) {
+  return (f.theoryHours ?? f.theory_hours ?? 0) + (f.labHours ?? f.lab_hours ?? 0) + (f.inchargeHours ?? f.incharge_hours ?? 0);
 }
 
 function UploadZone({ label, hint }: { label: string; hint: string }) {
-  const [file, setFile] = useState<string | null>(null);
   return (
-    <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-background px-4 py-6 text-center transition-colors hover:border-ring hover:bg-accent/30">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border bg-muted/50 px-4 py-6 text-center opacity-80 cursor-default">
       <FileSpreadsheet className="size-6 text-primary" />
       <span className="text-sm font-medium text-foreground">{label}</span>
-      <span className="text-xs text-muted-foreground">{file ?? hint}</span>
+      <span className="text-xs text-muted-foreground">{hint}</span>
       <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
-        <Upload className="size-3.5" /> {file ? "Replace file" : "Choose .xlsx"}
+        <CheckCircle2 className="size-3.5" /> Data Synced from Cloud
       </span>
-      <input
-        type="file"
-        accept=".xlsx,.xls,.csv"
-        className="hidden"
-        onChange={(e) => {
-          const name = e.target.files?.[0]?.name;
-          if (name) {
-            setFile(name);
-            toast.success(`${label} uploaded`, { description: name });
-          }
-        }}
-      />
-    </label>
+    </div>
   );
 }
 
@@ -234,7 +221,7 @@ function WorkloadPage() {
               Allocate theory, lab and incharge hours against each faculty member&apos;s maximum capacity.
             </p>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto min-h-[300px]">
             <table className="w-full min-w-[980px] border-collapse text-sm">
               <thead>
                 <tr className="bg-muted text-left">
@@ -348,7 +335,12 @@ function WorkloadPage() {
               disabled={!approved || generating}
               onClick={() => generate(true)}
             >
-              <CalendarCog className="mr-2 size-4" /> Generate All Timetables
+              {generating ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <CalendarCog className="mr-2 size-4" />
+              )}
+              Generate All Timetables
             </Button>
             {!approved ? (
               <span className="text-sm text-muted-foreground">

@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 import type { Slot } from "@/lib/erp-data";
+import { Button } from "@/components/ui/button";
+import html2pdf from "html2pdf.js";
 
 export const Route = createFileRoute("/admin/timetables")({
   head: () => ({
@@ -79,6 +81,19 @@ function MasterTimetables() {
     return defaultGrid;
   }, [allBlocks, section]);
 
+  const exportPDF = () => {
+    const element = document.getElementById("timetable-export-container");
+    if (!element) return;
+    const opt = {
+      margin: 0.5,
+      filename: `timetable_${section}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: "in", format: "a4", orientation: "landscape" },
+    };
+    html2pdf().set(opt).from(element).save();
+  };
+
   return (
     <PortalShell
       role="admin"
@@ -113,11 +128,18 @@ function MasterTimetables() {
                 Monday to Friday · exactly 6 periods per day · labs de-duplicated
               </p>
             </div>
-            <span className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">
-              Published
-            </span>
+            <div className="flex gap-2 items-center">
+              <Button size="sm" variant="outline" onClick={exportPDF}>
+                Export PDF
+              </Button>
+              <span className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground">
+                Published
+              </span>
+            </div>
           </div>
-          <TimetableGrid grid={grid} showFaculty />
+          <div id="timetable-export-container">
+            <TimetableGrid grid={grid} showFaculty />
+          </div>
         </div>
       </div>
     </PortalShell>

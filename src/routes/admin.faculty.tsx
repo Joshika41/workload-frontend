@@ -161,7 +161,7 @@ function FacultyManagement() {
             { label: "Pending Approvals", value: pending },
             {
               label: "Avg. Load",
-              value: `${Math.round(rows.reduce((a, r) => a + r.allocated, 0) / rows.length)} hrs`,
+              value: `${rows.length ? Math.round(rows.reduce((a, r) => a + (r.allocated || 0), 0) / rows.length) : 0} hrs`,
             },
           ].map((s) => (
             <div
@@ -183,7 +183,7 @@ function FacultyManagement() {
               Modify selections and approve submissions before workload generation.
             </p>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto min-h-[300px]">
             <table className="w-full min-w-[900px] border-collapse text-sm">
               <thead>
                 <tr className="bg-muted text-left">
