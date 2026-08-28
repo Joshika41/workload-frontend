@@ -42,14 +42,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ready,
       signIn: async (email, password, role) => {
         try {
-          const params = new URLSearchParams();
-          params.append("username", email);
-          params.append("password", password);
-          
-          const res = await api.post("/api/auth/login", params, {
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
+          const res = await api.post("/api/auth/login", { 
+            email: email, 
+            username: email, 
+            password: password 
           });
           const token = res.data.access_token;
           
