@@ -26,7 +26,7 @@ function UserAccessPanel() {
     queryKey: ['admin-faculty-list'],
     queryFn: async () => {
       try {
-        const res = await api.get('/admin/faculty-list');
+        const res = await api.get('/api/admin/faculty-list');
         return res.data;
       } catch (e) {
         return [];
@@ -48,7 +48,7 @@ function UserAccessPanel() {
         payload.faculty_id = parseInt(facultyId);
       }
       
-      await api.post('/auth/create-user', payload);
+      await api.post('/api/auth/create-user', payload);
       toast.success(role + ' User created successfully!');
       setEmail('');
       setPassword('');

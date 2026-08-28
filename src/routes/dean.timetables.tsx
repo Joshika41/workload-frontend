@@ -32,7 +32,7 @@ function DeanTimetables() {
   const { data: metadata } = useQuery({
     queryKey: ["metadata"],
     queryFn: async () => {
-      const res = await api.get("/timetable/metadata");
+      const res = await api.get("/api/timetable/metadata");
       return res.data;
     }
   });
@@ -49,7 +49,7 @@ function DeanTimetables() {
   const { data: allBlocks } = useQuery({
     queryKey: ["admin-timetable"],
     queryFn: async () => {
-      const res = await api.get("/admin/timetable");
+      const res = await api.get("/api/admin/timetable");
       return res.data;
     }
   });

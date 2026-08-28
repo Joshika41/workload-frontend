@@ -26,19 +26,32 @@ function AdminDataTime() {
     }
     
     setUploading(true);
+    let successCount = 0;
+    
     try {
-      const formData = new FormData();
-      if (syllabusFile) formData.append("syllabus_file", syllabusFile);
-      if (facultyFile) formData.append("faculty_file", facultyFile);
-      if (roomsFile) formData.append("rooms_file", roomsFile);
+      if (syllabusFile) {
+        const formData = new FormData();
+        formData.append("file", syllabusFile);
+        await api.post("/api/upload/syllabus", formData, { headers: { "Content-Type": "multipart/form-data" } });
+        successCount++;
+        setSyllabusFile(null);
+      }
+      if (facultyFile) {
+        const formData = new FormData();
+        formData.append("file", facultyFile);
+        await api.post("/api/upload/faculty_list", formData, { headers: { "Content-Type": "multipart/form-data" } });
+        successCount++;
+        setFacultyFile(null);
+      }
+      if (roomsFile) {
+        const formData = new FormData();
+        formData.append("file", roomsFile);
+        await api.post("/api/upload/rooms", formData, { headers: { "Content-Type": "multipart/form-data" } });
+        successCount++;
+        setRoomsFile(null);
+      }
       
-      // Backend actually uses endpoints like /api/upload/faculty_list or /api/upload/rooms based on instructions
-      toast.error("Please upload to specific individual endpoints (simulated success for now)");
-      
-      toast.success("Metadata uploaded successfully!");
-      setSyllabusFile(null);
-      setFacultyFile(null);
-      setRoomsFile(null);
+      toast.success(`Successfully uploaded ${successCount} file(s)!`);
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Upload failed");
     } finally {

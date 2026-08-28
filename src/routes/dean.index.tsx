@@ -6,6 +6,10 @@ import { useAuth } from '@/lib/auth';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { FileSpreadsheet } from 'lucide-react';
+
 export const Route = createFileRoute('/dean/')({
   component: DeanDashboard,
 });
@@ -21,7 +25,7 @@ function DeanDashboard() {
     queryKey: ['master-timetable'],
     queryFn: async () => {
       try {
-        const res = await api.get('/timetable/master');
+        const res = await api.get('/api/workload/summary');
         return res.data;
       } catch (e) {
         return [];
@@ -51,16 +55,40 @@ function DeanDashboard() {
         <div className='flex justify-between items-center mb-6'>
           <h2 className='text-lg font-semibold text-foreground'>Institutional Matrix</h2>
           
-          <select 
-            value={departmentFilter} 
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            className='rounded border border-border bg-background px-3 py-2 text-sm'
-          >
-            <option value='ALL'>All Departments</option>
-            {departments.map((d: any) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
+          <div className='flex gap-4'>
+            <Button
+              variant='outline'
+              onClick={async () => {
+                try {
+                  const response = await api.get('/api/export/timetable', { responseType: 'blob' });
+                  const url = window.URL.createObjectURL(new Blob([response.data]));
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.setAttribute('download', 'master_timetable.xlsx');
+                  document.body.appendChild(link);
+                  link.click();
+                  link.parentNode?.removeChild(link);
+                } catch (err) {
+                  toast.error('Export failed');
+                }
+              }}
+              className='bg-green-500/10 text-green-600 hover:bg-green-500/20 hover:text-green-700 border-green-500/20'
+            >
+              <FileSpreadsheet className='mr-2 size-4' />
+              Export to Excel
+            </Button>
+            
+            <select 
+              value={departmentFilter}  
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className='rounded border border-border bg-background px-3 py-2 text-sm'
+            >
+              <option value='ALL'>All Departments</option>
+              {departments.map((d: any) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className='overflow-x-auto mb-6'>

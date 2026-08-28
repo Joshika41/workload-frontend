@@ -78,7 +78,7 @@ function WorkloadPage() {
   const { data: fetchedFaculty, isLoading } = useQuery({
     queryKey: ["faculty-list"],
     queryFn: async () => {
-      const res = await api.get<Faculty[]>("/admin/faculty-list");
+      const res = await api.get<Faculty[]>("/api/admin/faculty-list");
       return res.data;
     },
   });
@@ -87,7 +87,7 @@ function WorkloadPage() {
     queryKey: ["admin-preferences"],
     queryFn: async () => {
       try {
-        const res = await api.get("/admin/preferences");
+        const res = await api.get("/api/admin/preferences");
         return res.data;
       } catch (e) {
         return [];
@@ -133,7 +133,7 @@ function WorkloadPage() {
         max_hours_limit: r.maxHours
       }));
 
-      const endpoint = all ? "/generate/timetables" : "/workload/allocate";
+      const endpoint = all ? "/api/generate/timetables" : "/api/workload/allocate";
       const res = await api.post(endpoint, all ? {} : payload);
       
       window.clearInterval(timer);
@@ -173,7 +173,7 @@ function WorkloadPage() {
 
   const handleExport = async () => {
     try {
-      const response = await api.get('/export/timetable', { responseType: 'blob' });
+      const response = await api.get('/api/export/timetable', { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;

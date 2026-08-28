@@ -40,7 +40,7 @@ function FacultyPreferences() {
       }));
       
       // Post each preference
-      await Promise.all(payload.map(p => api.post('/faculty/preferences', p)));
+      await Promise.all(payload.map(p => api.post('/api/faculty/preferences', p)));
       
       toast.success('Time slot preferences submitted successfully!');
     } catch (err: any) {

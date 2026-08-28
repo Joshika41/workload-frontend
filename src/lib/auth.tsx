@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ready,
       signIn: async (email, password, role) => {
         try {
-          const res = await api.post("/auth/login", { email, password });
+          const res = await api.post("/api/auth/login", { email, password });
           const token = res.data.access_token;
           
           const payload = jwtDecode<any>(token);
