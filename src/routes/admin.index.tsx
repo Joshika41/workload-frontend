@@ -29,27 +29,27 @@ function AdminDataTime() {
     let successCount = 0;
     
     try {
+      const formData = new FormData();
       if (syllabusFile) {
-        const formData = new FormData();
-        formData.append("file", syllabusFile);
-        await api.post("/api/upload/syllabus", formData, { headers: { "Content-Type": "multipart/form-data" } });
+        formData.append("syllabus_file", syllabusFile);
         successCount++;
-        setSyllabusFile(null);
       }
       if (facultyFile) {
-        const formData = new FormData();
-        formData.append("file", facultyFile);
-        await api.post("/api/upload/faculty_list", formData, { headers: { "Content-Type": "multipart/form-data" } });
+        formData.append("faculty_file", facultyFile);
         successCount++;
-        setFacultyFile(null);
       }
       if (roomsFile) {
-        const formData = new FormData();
-        formData.append("file", roomsFile);
-        await api.post("/api/upload/rooms", formData, { headers: { "Content-Type": "multipart/form-data" } });
+        formData.append("rooms_file", roomsFile);
         successCount++;
-        setRoomsFile(null);
       }
+      
+      await api.post("/api/admin/upload-metadata", formData, { 
+        headers: { "Content-Type": "multipart/form-data" } 
+      });
+      
+      setSyllabusFile(null);
+      setFacultyFile(null);
+      setRoomsFile(null);
       
       toast.success(`Successfully uploaded ${successCount} file(s)!`);
     } catch (err: any) {
