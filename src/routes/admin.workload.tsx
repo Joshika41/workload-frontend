@@ -72,7 +72,15 @@ function UploadZone({ label, hint }: { label: string; hint: string }) {
 }
 
 function WorkloadPage() {
-  const { session } = useAuth();
+  const { session, departmentLabs, fetchDepartments, toggleHasLabs } = useAuth();
+  
+  useEffect(() => {
+    fetchDepartments();
+  }, [fetchDepartments]);
+
+  const activeDepartment = session?.department || "MCA";
+  const hasLabs = departmentLabs[activeDepartment] ?? true;
+
   const [program, setProgram] = useState<"UG" | "PG">("PG");
   const [scope, setScope] = useState("current");
   const { data: fetchedFaculty, isLoading } = useQuery({
@@ -467,7 +475,7 @@ function WorkloadPage() {
                     <tr key={f.id} className="border-t border-border">
                       <td className="px-4 py-2.5 font-medium text-foreground">{f.name}</td>
                       <td className="px-4 py-2.5 text-muted-foreground">{f.theoryHours} hrs</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{f.labHours} hrs</td>
+                      {hasLabs && <td className="px-4 py-2.5 text-muted-foreground">{f.labHours} hrs</td>}
                       <td className="px-4 py-2.5 text-muted-foreground">{f.inchargeHours} hrs</td>
                       <td className="px-4 py-2.5">
                         <Badge className="font-mono">
