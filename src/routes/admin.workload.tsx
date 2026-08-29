@@ -118,53 +118,81 @@ function WorkloadPage() {
     setProgress(8);
     setResults(null);
     
-    // Simulate initial progress while waiting for API
     const timer = window.setInterval(() => {
       setProgress((p) => (p >= 92 ? p : p + 11));
     }, 180);
 
     try {
-      const payload = rows.map(r => ({
-        faculty_id: r.id || r.faculty_id,
-        department: r.department,
-        theory_hours: r.theoryHours,
-        lab_hours: r.labHours,
-        incharge_hours: r.inchargeHours,
-        max_hours_limit: r.maxHours
-      }));
-
-      const endpoint = all ? "/api/generate/timetables" : "/api/workload/allocate";
-      const res = await api.post(endpoint, all ? {} : payload);
-      
-      window.clearInterval(timer);
-      setProgress(100);
-      
-      if (res.data.workload) {
-        // Map back backend response to frontend format if needed
-        const newResults = res.data.workload.map((w: any) => ({
-          id: w.faculty_id,
-          name: rows.find(r => (r.id || r.faculty_id) === w.faculty_id)?.name || w.faculty_id,
-          department: w.department,
-          theoryHours: w.theory_hours,
-          labHours: w.lab_hours,
-          inchargeHours: w.incharge_hours,
-          maxHours: w.max_hours_limit
-        }));
-        setResults(newResults);
+      if (all) {
+        const res = await api.post("/api/generate/timetables", {});
+        const taskId = res.data.task_id;
+        
+        if (!taskId) {
+            throw new Error("No task ID returned from background processor");
+        }
+        
+        let status = "PENDING";
+        let finalResult = null;
+        
+        while (status === "PENDING" || status === "PROCESSING") {
+            await new Promise(r => setTimeout(r, 3000));
+            const pollRes = await api.get(`/api/generate/status/${taskId}`);
+            status = pollRes.data.status;
+            finalResult = pollRes.data.result;
+            if (status === "PROCESSING") setProgress(p => p >= 90 ? p : p + 2);
+        }
+        
+        window.clearInterval(timer);
+        setProgress(100);
+        
+        if (status === "FAILED") {
+            throw new Error(finalResult?.detail || "Solver failed to generate timetable");
+        }
+        
+        toast.success("Timetables generated successfully!", {
+          description: `Backend Engine Status: ${finalResult?.status || 'Success'}`,
+        });
       } else {
-        setResults(rows); // fallback
+        const payload = rows.map(r => ({
+          faculty_id: r.id || r.faculty_id,
+          department: r.department,
+          theory_hours: r.theoryHours,
+          lab_hours: r.labHours,
+          incharge_hours: r.inchargeHours,
+          max_hours_limit: r.maxHours
+        }));
+
+        const res = await api.post("/api/workload/allocate", payload);
+        
+        window.clearInterval(timer);
+        setProgress(100);
+        
+        if (res.data.workload) {
+          const newResults = res.data.workload.map((w: any) => ({
+            id: w.faculty_id,
+            name: rows.find(r => (r.id || r.faculty_id) === w.faculty_id)?.name || w.faculty_id,
+            department: w.department,
+            theoryHours: w.theory_hours,
+            labHours: w.lab_hours,
+            inchargeHours: w.incharge_hours,
+            maxHours: w.max_hours_limit
+          }));
+          setResults(newResults);
+        } else {
+          setResults(rows); 
+        }
+        
+        toast.success("Workload matrix generated", {
+          description: `Backend Engine Status: ${res.data.status || 'Success'}`,
+        });
       }
-      
-      toast.success(all ? "Timetables generated successfully!" : "Workload matrix generated", {
-        description: `Backend Engine Status: ${res.data.status || 'Success'}`,
-      });
     } catch (err: any) {
       window.clearInterval(timer);
-      const detail = err.response?.data?.detail;
+      const detail = err.response?.data?.detail || err.message;
       if (err.response?.status === 400 && detail) {
         toast.error("Schedule mathematically impossible", { description: detail });
       } else {
-        toast.error("Generation failed", { description: detail || err.message });
+        toast.error("Generation failed", { description: detail });
       }
     } finally {
       setGenerating(false);
