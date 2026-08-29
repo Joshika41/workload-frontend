@@ -17,10 +17,22 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('auth_token');
-      if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
-        window.location.href = '/login';
+    if (error.response) {
+      if (error.response.status === 401) {
+        localStorage.removeItem('auth_token');
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
+          window.location.href = '/login';
+        }
+      }
+      
+      // Extract detailed API error message
+      if (error.response.data && error.response.data.detail) {
+        // Handle array of details (e.g. pydantic validation errors)
+        if (Array.isArray(error.response.data.detail)) {
+            error.message = error.response.data.detail.map((e: any) => e.msg).join(", ");
+        } else if (typeof error.response.data.detail === 'string') {
+            error.message = error.response.data.detail;
+        }
       }
     }
     return Promise.reject(error);
