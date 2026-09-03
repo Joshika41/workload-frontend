@@ -108,18 +108,12 @@ function AdminSetup() {
   const [programType, setProgramType] = useState("UG");
   const [semesterType, setSemesterType] = useState("Odd");
 
-  // Create an extended nav for this view
-  const nav = [
-    { to: "/admin/setup", label: "Setup & Ingestion", icon: <Database className="size-4" /> },
-    ...adminNav
-  ];
-
   return (
     <PortalShell
       role="admin"
       title="Setup & Ingestion"
       subtitle="Initialize your workspace and import ERP metadata"
-      nav={nav}
+      nav={adminNav}
     >
       <div className="mb-8 rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="mb-4 text-sm font-medium text-muted-foreground uppercase tracking-wider">Active Workspace Session</h2>

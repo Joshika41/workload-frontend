@@ -10,7 +10,7 @@ export const adminNav: NavItem[] = [
 ];
 
 export const facultyNav: NavItem[] = [
-  { to: "/faculty", label: "Subject Preferences", icon: <ListChecks className="size-4" /> },
+  { to: "/faculty/dashboard", label: "Subject Preferences", icon: <ListChecks className="size-4" /> },
   { to: "/faculty/timetable", label: "My Timetable", icon: <CalendarRange className="size-4" /> },
 ];
 
