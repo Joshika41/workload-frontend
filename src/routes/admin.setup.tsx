@@ -32,6 +32,10 @@ function DropzoneCard({ title, icon: Icon, description, endpoint, workspaceSessi
   });
 
   const handleUpload = async () => {
+    if (!workspaceSession.programType || !workspaceSession.semesterType) {
+      toast.error("Please select both Program Type and Semester Type before uploading.");
+      return;
+    }
     if (!file) return;
     setUploading(true);
     const formData = new FormData();
@@ -105,8 +109,8 @@ function DropzoneCard({ title, icon: Icon, description, endpoint, workspaceSessi
 }
 
 function AdminSetup() {
-  const [programType, setProgramType] = useState("UG");
-  const [semesterType, setSemesterType] = useState("Odd");
+  const [programType, setProgramType] = useState("");
+  const [semesterType, setSemesterType] = useState("");
 
   return (
     <PortalShell
