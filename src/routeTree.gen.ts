@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminAllocationRouteImport } from './routes/admin.allocation'
 import { Route as AdminFacultyRouteImport } from './routes/admin.faculty'
 import { Route as AdminSetupRouteImport } from './routes/admin.setup'
 import { Route as AdminTimetablesRouteImport } from './routes/admin.timetables'
@@ -18,6 +19,7 @@ import { Route as AdminWorkloadRouteImport } from './routes/admin.workload'
 import { Route as DeanIndexRouteImport } from './routes/dean.index'
 import { Route as DeanTimetablesRouteImport } from './routes/dean.timetables'
 import { Route as FacultyIndexRouteImport } from './routes/faculty.index'
+import { Route as FacultyDashboardRouteImport } from './routes/faculty.dashboard'
 import { Route as FacultyTimetableRouteImport } from './routes/faculty.timetable'
 
 const IndexRoute = IndexRouteImport.update({
@@ -28,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAllocationRoute = AdminAllocationRouteImport.update({
+  id: '/admin/allocation',
+  path: '/admin/allocation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminFacultyRoute = AdminFacultyRouteImport.update({
@@ -65,6 +72,11 @@ const FacultyIndexRoute = FacultyIndexRouteImport.update({
   path: '/faculty/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FacultyDashboardRoute = FacultyDashboardRouteImport.update({
+  id: '/faculty/dashboard',
+  path: '/faculty/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FacultyTimetableRoute = FacultyTimetableRouteImport.update({
   id: '/faculty/timetable',
   path: '/faculty/timetable',
@@ -73,11 +85,13 @@ const FacultyTimetableRoute = FacultyTimetableRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin/allocation': typeof AdminAllocationRoute
   '/admin/faculty': typeof AdminFacultyRoute
   '/admin/setup': typeof AdminSetupRoute
   '/admin/timetables': typeof AdminTimetablesRoute
   '/admin/workload': typeof AdminWorkloadRoute
   '/dean/timetables': typeof DeanTimetablesRoute
+  '/faculty/dashboard': typeof FacultyDashboardRoute
   '/faculty/timetable': typeof FacultyTimetableRoute
   '/admin/': typeof AdminIndexRoute
   '/dean/': typeof DeanIndexRoute
@@ -85,11 +99,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin/allocation': typeof AdminAllocationRoute
   '/admin/faculty': typeof AdminFacultyRoute
   '/admin/setup': typeof AdminSetupRoute
   '/admin/timetables': typeof AdminTimetablesRoute
   '/admin/workload': typeof AdminWorkloadRoute
   '/dean/timetables': typeof DeanTimetablesRoute
+  '/faculty/dashboard': typeof FacultyDashboardRoute
   '/faculty/timetable': typeof FacultyTimetableRoute
   '/admin': typeof AdminIndexRoute
   '/dean': typeof DeanIndexRoute
@@ -98,11 +114,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin/allocation': typeof AdminAllocationRoute
   '/admin/faculty': typeof AdminFacultyRoute
   '/admin/setup': typeof AdminSetupRoute
   '/admin/timetables': typeof AdminTimetablesRoute
   '/admin/workload': typeof AdminWorkloadRoute
   '/dean/timetables': typeof DeanTimetablesRoute
+  '/faculty/dashboard': typeof FacultyDashboardRoute
   '/faculty/timetable': typeof FacultyTimetableRoute
   '/admin/': typeof AdminIndexRoute
   '/dean/': typeof DeanIndexRoute
@@ -112,11 +130,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin/allocation'
     | '/admin/faculty'
     | '/admin/setup'
     | '/admin/timetables'
     | '/admin/workload'
     | '/dean/timetables'
+    | '/faculty/dashboard'
     | '/faculty/timetable'
     | '/admin/'
     | '/dean/'
@@ -124,11 +144,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin/allocation'
     | '/admin/faculty'
     | '/admin/setup'
     | '/admin/timetables'
     | '/admin/workload'
     | '/dean/timetables'
+    | '/faculty/dashboard'
     | '/faculty/timetable'
     | '/admin'
     | '/dean'
@@ -136,11 +158,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin/allocation'
     | '/admin/faculty'
     | '/admin/setup'
     | '/admin/timetables'
     | '/admin/workload'
     | '/dean/timetables'
+    | '/faculty/dashboard'
     | '/faculty/timetable'
     | '/admin/'
     | '/dean/'
@@ -149,11 +173,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminAllocationRoute: typeof AdminAllocationRoute
   AdminFacultyRoute: typeof AdminFacultyRoute
   AdminSetupRoute: typeof AdminSetupRoute
   AdminTimetablesRoute: typeof AdminTimetablesRoute
   AdminWorkloadRoute: typeof AdminWorkloadRoute
   DeanTimetablesRoute: typeof DeanTimetablesRoute
+  FacultyDashboardRoute: typeof FacultyDashboardRoute
   FacultyTimetableRoute: typeof FacultyTimetableRoute
   AdminIndexRoute: typeof AdminIndexRoute
   DeanIndexRoute: typeof DeanIndexRoute
@@ -174,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/allocation': {
+      id: '/admin/allocation'
+      path: '/admin/allocation'
+      fullPath: '/admin/allocation'
+      preLoaderRoute: typeof AdminAllocationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/faculty': {
@@ -225,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FacultyIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/faculty/dashboard': {
+      id: '/faculty/dashboard'
+      path: '/faculty/dashboard'
+      fullPath: '/faculty/dashboard'
+      preLoaderRoute: typeof FacultyDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/faculty/timetable': {
       id: '/faculty/timetable'
       path: '/faculty/timetable'
@@ -237,11 +277,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminAllocationRoute: AdminAllocationRoute,
   AdminFacultyRoute: AdminFacultyRoute,
   AdminSetupRoute: AdminSetupRoute,
   AdminTimetablesRoute: AdminTimetablesRoute,
   AdminWorkloadRoute: AdminWorkloadRoute,
   DeanTimetablesRoute: DeanTimetablesRoute,
+  FacultyDashboardRoute: FacultyDashboardRoute,
   FacultyTimetableRoute: FacultyTimetableRoute,
   AdminIndexRoute: AdminIndexRoute,
   DeanIndexRoute: DeanIndexRoute,

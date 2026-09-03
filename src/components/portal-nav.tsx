@@ -3,7 +3,7 @@ import type { NavItem } from "@/components/PortalShell";
 
 export const adminNav: NavItem[] = [
   { to: "/admin/setup", label: "Setup & Ingestion", icon: <Database className="size-4" /> },
-  { to: "/admin/workload", label: "Workload History & Generation", icon: <LayoutGrid className="size-4" /> },
+  { to: "/admin/allocation", label: "Workload Allocation Matrix", icon: <LayoutGrid className="size-4" /> },
   { to: "/admin/timetables", label: "Master Class Timetables", icon: <CalendarDays className="size-4" /> },
   { to: "/admin/faculty", label: "Faculty Management", icon: <Users className="size-4" /> },
   { to: "/admin", label: "Change Department", icon: <Building2 className="size-4" /> },
