@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminFacultyRouteImport } from './routes/admin.faculty'
+import { Route as AdminSetupRouteImport } from './routes/admin.setup'
 import { Route as AdminTimetablesRouteImport } from './routes/admin.timetables'
 import { Route as AdminWorkloadRouteImport } from './routes/admin.workload'
 import { Route as DeanIndexRouteImport } from './routes/dean.index'
@@ -32,6 +33,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminFacultyRoute = AdminFacultyRouteImport.update({
   id: '/admin/faculty',
   path: '/admin/faculty',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSetupRoute = AdminSetupRouteImport.update({
+  id: '/admin/setup',
+  path: '/admin/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminTimetablesRoute = AdminTimetablesRouteImport.update({
@@ -68,6 +74,7 @@ const FacultyTimetableRoute = FacultyTimetableRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin/faculty': typeof AdminFacultyRoute
+  '/admin/setup': typeof AdminSetupRoute
   '/admin/timetables': typeof AdminTimetablesRoute
   '/admin/workload': typeof AdminWorkloadRoute
   '/dean/timetables': typeof DeanTimetablesRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/faculty': typeof AdminFacultyRoute
+  '/admin/setup': typeof AdminSetupRoute
   '/admin/timetables': typeof AdminTimetablesRoute
   '/admin/workload': typeof AdminWorkloadRoute
   '/dean/timetables': typeof DeanTimetablesRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin/faculty': typeof AdminFacultyRoute
+  '/admin/setup': typeof AdminSetupRoute
   '/admin/timetables': typeof AdminTimetablesRoute
   '/admin/workload': typeof AdminWorkloadRoute
   '/dean/timetables': typeof DeanTimetablesRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin/faculty'
+    | '/admin/setup'
     | '/admin/timetables'
     | '/admin/workload'
     | '/dean/timetables'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin/faculty'
+    | '/admin/setup'
     | '/admin/timetables'
     | '/admin/workload'
     | '/dean/timetables'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin/faculty'
+    | '/admin/setup'
     | '/admin/timetables'
     | '/admin/workload'
     | '/dean/timetables'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminFacultyRoute: typeof AdminFacultyRoute
+  AdminSetupRoute: typeof AdminSetupRoute
   AdminTimetablesRoute: typeof AdminTimetablesRoute
   AdminWorkloadRoute: typeof AdminWorkloadRoute
   DeanTimetablesRoute: typeof DeanTimetablesRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/faculty'
       fullPath: '/admin/faculty'
       preLoaderRoute: typeof AdminFacultyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/setup': {
+      id: '/admin/setup'
+      path: '/admin/setup'
+      fullPath: '/admin/setup'
+      preLoaderRoute: typeof AdminSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/timetables': {
@@ -218,6 +238,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminFacultyRoute: AdminFacultyRoute,
+  AdminSetupRoute: AdminSetupRoute,
   AdminTimetablesRoute: AdminTimetablesRoute,
   AdminWorkloadRoute: AdminWorkloadRoute,
   DeanTimetablesRoute: DeanTimetablesRoute,

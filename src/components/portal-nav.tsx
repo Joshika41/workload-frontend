@@ -1,7 +1,8 @@
-import { CalendarDays, LayoutGrid, Users, ListChecks, CalendarRange, Building2 } from "lucide-react";
+import { CalendarDays, LayoutGrid, Users, ListChecks, CalendarRange, Building2, Database } from "lucide-react";
 import type { NavItem } from "@/components/PortalShell";
 
 export const adminNav: NavItem[] = [
+  { to: "/admin/setup", label: "Setup & Ingestion", icon: <Database className="size-4" /> },
   { to: "/admin/workload", label: "Workload History & Generation", icon: <LayoutGrid className="size-4" /> },
   { to: "/admin/timetables", label: "Master Class Timetables", icon: <CalendarDays className="size-4" /> },
   { to: "/admin/faculty", label: "Faculty Management", icon: <Users className="size-4" /> },
