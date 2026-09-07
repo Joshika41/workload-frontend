@@ -39,7 +39,10 @@ async def upload_faculty_onboarding(
 ):
     try:
         contents = await file.read()
-        df = pd.read_excel(io.BytesIO(contents))
+        try:
+            df = pd.read_excel(io.BytesIO(contents))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Invalid or corrupted Excel file. Please check the format.")
         
         df.columns = [str(c).strip().lower().replace(' ', '_').replace('\n', '') for c in df.columns]
         df.dropna(how='all', inplace=True)
@@ -162,13 +165,29 @@ async def upload_syllabus_phase2(
 ):
     try:
         contents = await file.read()
-        df = pd.read_excel(io.BytesIO(contents))
+        try:
+            df = pd.read_excel(io.BytesIO(contents))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Invalid or corrupted Excel file. Please check the format.")
         
         df.columns = [str(c).strip().lower().replace(' ', '_').replace('\n', '') for c in df.columns]
         df.dropna(how='all', inplace=True)
         df.fillna("", inplace=True)
         
         batch_sync_id = uuid.uuid4().hex
+        # Relational Validation
+        prog_col = next((c for c in df.columns if 'program' in c), None)
+        sem_col = next((c for c in df.columns if 'semester' in c), None)
+        
+        for idx, row in df.iterrows():
+            if prog_col:
+                val = str(row.get(prog_col, '')).strip().upper()
+                if val and val != program_type.upper():
+                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {program_type.upper()}")
+            if sem_col:
+                val = str(row.get(sem_col, '')).strip().upper()
+                if val and val != semester_type.upper():
+                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {semester_type.upper()}")
         prog = ProgramTypeEnum(program_type.upper())
         sem = SemesterTypeEnum(semester_type.upper())
         
@@ -289,12 +308,28 @@ async def upload_cohorts_phase2(
 ):
     try:
         contents = await file.read()
-        df = pd.read_excel(io.BytesIO(contents))
+        try:
+            df = pd.read_excel(io.BytesIO(contents))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Invalid or corrupted Excel file. Please check the format.")
         
         df.columns = [str(c).strip().lower().replace(' ', '_').replace('\n', '') for c in df.columns]
         df.dropna(how='all', inplace=True)
         df.fillna("", inplace=True)
         
+        # Relational Validation
+        prog_col = next((c for c in df.columns if 'program' in c), None)
+        sem_col = next((c for c in df.columns if 'semester' in c), None)
+        
+        for idx, row in df.iterrows():
+            if prog_col:
+                val = str(row.get(prog_col, '')).strip().upper()
+                if val and val != program_type.upper():
+                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {program_type.upper()}")
+            if sem_col:
+                val = str(row.get(sem_col, '')).strip().upper()
+                if val and val != semester_type.upper():
+                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {semester_type.upper()}")
         prog = ProgramTypeEnum(program_type.upper())
         sem = SemesterTypeEnum(semester_type.upper())
         
@@ -384,3 +419,99 @@ async def upload_cohorts_phase2(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"File parsing error: {str(e)}")
+
+
+from pydantic import BaseModel
+from typing import Optional
+
+class SyllabusUpdate(BaseModel):
+    course_title: str
+    course_type: str
+    theory_hours_l: int
+    practical_hours_p: int
+    credits_c: int
+
+class CohortUpdate(BaseModel):
+    academic_year: int
+    class_name: str
+    section: str
+
+@router.get("/api/admin/syllabus")
+def get_syllabus(department_id: int, program_type: str, semester_type: str, db: Session = Depends(get_db), current_user: models.User = Depends(verify_admin_role)):
+    # Relational Validation
+        prog_col = next((c for c in df.columns if 'program' in c), None)
+        sem_col = next((c for c in df.columns if 'semester' in c), None)
+        
+        for idx, row in df.iterrows():
+            if prog_col:
+                val = str(row.get(prog_col, '')).strip().upper()
+                if val and val != program_type.upper():
+                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {program_type.upper()}")
+            if sem_col:
+                val = str(row.get(sem_col, '')).strip().upper()
+                if val and val != semester_type.upper():
+                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {semester_type.upper()}")
+        prog = ProgramTypeEnum(program_type.upper())
+    sem = SemesterTypeEnum(semester_type.upper())
+    
+    # Needs to match through cohort mapping to filter by department exactly
+    # But for a simpler setup, syllabus often belongs to department via relations or direct column
+    # Currently syllabus has department_id
+    syllabi = db.query(Syllabus).filter(
+        Syllabus.program_type == prog,
+        Syllabus.semester_type == sem,
+        Syllabus.is_active == True,
+        # Syllabus.department_id == department_id # if it has it
+    ).all()
+    return syllabi
+
+@router.put("/api/admin/syllabus/{subject_code}")
+def update_syllabus(subject_code: str, payload: SyllabusUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(verify_admin_role)):
+    syl = db.query(Syllabus).filter(Syllabus.subject_code == subject_code, Syllabus.is_active == True).first()
+    if not syl:
+        raise HTTPException(status_code=404, detail="Syllabus not found")
+    
+    syl.course_title = payload.course_title
+    syl.course_type = payload.course_type
+    syl.theory_hours_l = payload.theory_hours_l
+    syl.practical_hours_p = payload.practical_hours_p
+    syl.credits_c = payload.credits_c
+    db.commit()
+    return {"message": "Syllabus updated successfully"}
+
+@router.get("/api/admin/cohorts")
+def get_cohorts(department_id: int, program_type: str, semester_type: str, db: Session = Depends(get_db), current_user: models.User = Depends(verify_admin_role)):
+    # Relational Validation
+        prog_col = next((c for c in df.columns if 'program' in c), None)
+        sem_col = next((c for c in df.columns if 'semester' in c), None)
+        
+        for idx, row in df.iterrows():
+            if prog_col:
+                val = str(row.get(prog_col, '')).strip().upper()
+                if val and val != program_type.upper():
+                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {program_type.upper()}")
+            if sem_col:
+                val = str(row.get(sem_col, '')).strip().upper()
+                if val and val != semester_type.upper():
+                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {semester_type.upper()}")
+        prog = ProgramTypeEnum(program_type.upper())
+    sem = SemesterTypeEnum(semester_type.upper())
+    cohorts = db.query(models.Cohort).filter(
+        models.Cohort.department_id == department_id,
+        models.Cohort.program_type == prog,
+        models.Cohort.semester_type == sem,
+        models.Cohort.is_active == True
+    ).all()
+    return cohorts
+
+@router.put("/api/admin/cohorts/{cohort_id}")
+def update_cohort(cohort_id: int, payload: CohortUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(verify_admin_role)):
+    cohort = db.query(models.Cohort).filter(models.Cohort.id == cohort_id, models.Cohort.is_active == True).first()
+    if not cohort:
+        raise HTTPException(status_code=404, detail="Cohort not found")
+    
+    cohort.academic_year = payload.academic_year
+    cohort.class_name = payload.class_name
+    cohort.section = payload.section
+    db.commit()
+    return {"message": "Cohort updated successfully"}

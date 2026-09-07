@@ -66,3 +66,20 @@ def delete_department(department_id: int, db: Session = Depends(get_db), current
     db.add(audit)
     db.commit()
     return {"message": "Department and related syllabus/cohorts softly deleted."}
+
+
+@router.put("/api/admin/departments/{department_id}")
+def update_department(department_id: int, payload: DepartmentCreate, db: Session = Depends(get_db), current_user: models.User = Depends(verify_admin_role)):
+    dept = db.query(models.Department).filter(models.Department.id == department_id, models.Department.is_active == True).first()
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    
+    # Check name collision
+    existing = db.query(models.Department).filter(models.Department.name == payload.name, models.Department.id != department_id, models.Department.is_active == True).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Department with this name already exists")
+        
+    dept.name = payload.name
+    dept.has_labs = payload.has_labs
+    db.commit()
+    return {"message": "Department updated successfully", "department": {"id": dept.id, "name": dept.name}}

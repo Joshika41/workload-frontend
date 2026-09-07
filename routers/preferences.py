@@ -50,6 +50,7 @@ def submit_preferences(prefs: List[PreferenceRequest], db: Session = Depends(get
 
 @router.get("/api/admin/preferences")
 def get_all_preferences(
+    department_id: int,
     program_type: str = "UG", 
     semester_type: str = "ODD", 
     db: Session = Depends(get_db), 
@@ -65,6 +66,7 @@ def get_all_preferences(
         ).join(
             models.Syllabus, models.CohortSyllabusMapping.subject_code == models.Syllabus.subject_code
         ).filter(
+            models.Cohort.department_id == department_id,
             models.Cohort.program_type == prog,
             models.Cohort.semester_type == sem,
             models.Cohort.is_active == True,
