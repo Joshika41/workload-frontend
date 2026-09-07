@@ -196,7 +196,7 @@ function WorkloadPage() {
       }
     } catch (err: any) {
       window.clearInterval(timer);
-      const detail = err.response?.data?.detail || err.message;
+      const detail = err.message || err.message;
       if (err.response?.status === 400 && detail) {
         toast.error("Schedule mathematically impossible", { description: detail });
       } else {

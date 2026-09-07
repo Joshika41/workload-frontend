@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { toast } from 'sonner';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = '';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -20,8 +21,10 @@ api.interceptors.response.use(
     if (error.response) {
       if (error.response.status === 401) {
         localStorage.removeItem('auth_token');
-        if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
-          window.location.href = '/login';
+        localStorage.removeItem('srm-erp-session'); // Clear contextual session to prevent redirect loops
+        if (window.location.pathname !== '/') {
+          toast.error("Session Expired. Please log in again to protect your data.");
+          window.location.href = '/';
         }
       }
       

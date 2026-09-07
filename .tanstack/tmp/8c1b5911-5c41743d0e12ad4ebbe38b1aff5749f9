@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAllocationRouteImport } from './routes/admin.allocation'
 import { Route as AdminAuditRouteImport } from './routes/admin.audit'
@@ -27,6 +28,11 @@ import { Route as FacultyTimetableRouteImport } from './routes/faculty.timetable
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -97,6 +103,7 @@ const FacultyTimetableRoute = FacultyTimetableRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/admin/allocation': typeof AdminAllocationRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/faculty': typeof AdminFacultyRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/admin/allocation': typeof AdminAllocationRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/faculty': typeof AdminFacultyRoute
@@ -130,6 +138,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
   '/admin/allocation': typeof AdminAllocationRoute
   '/admin/audit': typeof AdminAuditRoute
   '/admin/faculty': typeof AdminFacultyRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/admin/allocation'
     | '/admin/audit'
     | '/admin/faculty'
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/admin/allocation'
     | '/admin/audit'
     | '/admin/faculty'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/login'
     | '/admin/allocation'
     | '/admin/audit'
     | '/admin/faculty'
@@ -197,6 +209,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
   AdminAllocationRoute: typeof AdminAllocationRoute
   AdminAuditRoute: typeof AdminAuditRoute
   AdminFacultyRoute: typeof AdminFacultyRoute
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -317,6 +337,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
   AdminAllocationRoute: AdminAllocationRoute,
   AdminAuditRoute: AdminAuditRoute,
   AdminFacultyRoute: AdminFacultyRoute,

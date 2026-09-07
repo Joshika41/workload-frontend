@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Role } from "./erp-data";
 import api from "./api";
@@ -39,6 +40,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setReady(true);
   }, []);
+
+
+  // Proactive JWT Expiry checking
+  useEffect(() => {
+    if (!session) return;
+    
+    const checkExpiry = () => {
+      try {
+        const token = window.localStorage.getItem("auth_token");
+        if (!token) return;
+        
+        // Very basic JWT decode to get exp
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const exp = payload.exp * 1000;
+        const now = Date.now();
+        const timeRemaining = exp - now;
+        
+        // If less than 5 minutes remaining, warn the user
+        if (timeRemaining > 0 && timeRemaining < 5 * 60 * 1000) {
+          toast.warning("Your session will expire soon. Please save your work.", { id: "jwt-warn" });
+        }
+      } catch (e) {
+        // ignore decoding errors
+      }
+    };
+    
+    // Check every minute
+    const interval = setInterval(checkExpiry, 60000);
+    return () => clearInterval(interval);
+  }, [session]);
+
 
   const value = useMemo<AuthValue>(
     () => ({
@@ -88,7 +120,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           if (session?.role === 'admin' || session?.role === 'master_admin') {
             const res = await api.get("/api/admin/departments");
-            setDepartmentLabs(res.data);
+            if (Array.isArray(res.data)) {
+              // Convert array to Record<string, boolean> for backward compatibility
+              const labsMap: Record<string, boolean> = {};
+              res.data.forEach(d => {
+                labsMap[d.name] = d.has_labs || false;
+              });
+              setDepartmentLabs(labsMap);
+            } else {
+              setDepartmentLabs(res.data);
+            }
           }
         } catch { /* ignore */ }
       },

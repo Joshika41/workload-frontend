@@ -54,7 +54,7 @@ function UserAccessPanel() {
       setPassword('');
       setFacultyId('');
     } catch (err: any) {
-      toast.error(err.response?.data?.detail || 'Failed to create user');
+      toast.error(err.message || 'Failed to create user');
     } finally {
       setLoading(false);
     }
