@@ -246,7 +246,141 @@ async def upload_syllabus_phase2(
             db.rollback()
             soft_deleted = 0
 
+        
+        # Auto-generate mappings for newly inserted syllabus
+        active_cohorts = db.query(models.Cohort).filter(
+            models.Cohort.program_type == prog,
+            models.Cohort.semester_type == sem,
+            models.Cohort.is_active == True
+        ).all()
+        
+        # We need all active syllabus to remap
+        active_syllabus = db.query(Syllabus).filter(
+            Syllabus.program_type == prog,
+            Syllabus.semester_type == sem,
+            Syllabus.is_active == True
+        ).all()
+
+        for syl in active_syllabus:
+            for c in active_cohorts:
+                existing_map = db.query(models.CohortSyllabusMapping).filter(
+                    models.CohortSyllabusMapping.cohort_id == c.id,
+                    models.CohortSyllabusMapping.subject_code == syl.subject_code
+                ).first()
+                if not existing_map:
+                    db.add(models.CohortSyllabusMapping(cohort_id=c.id, subject_code=syl.subject_code))
+
+        db.commit()
+
         return {"message": "Syllabus synced successfully", "upserted": upserted, "soft_deleted": soft_deleted}
 
     except Exception as e:
+        raise HTTPException(status_code=400, detail=f"File parsing error: {str(e)}")
+
+
+@router.post("/api/admin/upload-cohorts")
+async def upload_cohorts_phase2(
+    file: UploadFile = File(...), 
+    program_type: str = Form(...),
+    semester_type: str = Form(...),
+    department_id: int = Form(...),
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(verify_admin_role)
+):
+    try:
+        contents = await file.read()
+        df = pd.read_excel(io.BytesIO(contents))
+        
+        df.columns = [str(c).strip().lower().replace(' ', '_').replace('\n', '') for c in df.columns]
+        df.dropna(how='all', inplace=True)
+        df.fillna("", inplace=True)
+        
+        prog = ProgramTypeEnum(program_type.upper())
+        sem = SemesterTypeEnum(semester_type.upper())
+        
+        dept = db.query(models.Department).filter(models.Department.id == department_id).first()
+        dept_name = dept.name if dept else "Unknown"
+        
+        ay_col = next((c for c in df.columns if 'year' in c or 'ay' in c), None)
+        class_col = next((c for c in df.columns if 'class' in c or 'name' in c or 'cohort' in c), None)
+        sec_col = next((c for c in df.columns if 'sec' in c), None)
+        
+        if not class_col:
+            raise HTTPException(status_code=400, detail="Could not find Class Name column.")
+            
+        upserted = 0
+        
+        # Soft delete existing to replace
+        db.query(models.Cohort).filter(
+            models.Cohort.department_id == department_id,
+            models.Cohort.program_type == prog,
+            models.Cohort.semester_type == sem
+        ).update({"is_active": False}, synchronize_session=False)
+        db.commit()
+        
+        for _, row in df.iterrows():
+            try:
+                c_name = str(row.get(class_col)).strip()
+                if not c_name:
+                    continue
+                ay = safe_int(row.get(ay_col)) if ay_col else 1
+                sec = str(row.get(sec_col)).strip() if sec_col else "A"
+                
+                existing = db.query(models.Cohort).filter(
+                    models.Cohort.department_id == department_id,
+                    models.Cohort.program_type == prog,
+                    models.Cohort.semester_type == sem,
+                    models.Cohort.academic_year == ay,
+                    models.Cohort.class_name == c_name,
+                    models.Cohort.section == sec
+                ).first()
+                
+                if existing:
+                    existing.is_active = True
+                else:
+                    new_cohort = models.Cohort(
+                        department_id=department_id,
+                        department=dept_name,
+                        academic_year=ay,
+                        class_name=c_name,
+                        section=sec,
+                        program_type=prog,
+                        semester_type=sem,
+                        is_active=True
+                    )
+                    db.add(new_cohort)
+                
+                upserted += 1
+            except Exception as e:
+                print(f"Skipped cohort row: {e}")
+                continue
+        
+        db.commit()
+        
+        # Auto-generate mappings
+        active_syllabus = db.query(models.Syllabus).filter(
+            models.Syllabus.program_type == prog,
+            models.Syllabus.semester_type == sem,
+            models.Syllabus.is_active == True
+        ).all()
+        
+        active_cohorts = db.query(models.Cohort).filter(
+            models.Cohort.program_type == prog,
+            models.Cohort.semester_type == sem,
+            models.Cohort.is_active == True
+        ).all()
+        
+        for c in active_cohorts:
+            for syl in active_syllabus:
+                existing_map = db.query(models.CohortSyllabusMapping).filter(
+                    models.CohortSyllabusMapping.cohort_id == c.id,
+                    models.CohortSyllabusMapping.subject_code == syl.subject_code
+                ).first()
+                if not existing_map:
+                    db.add(models.CohortSyllabusMapping(cohort_id=c.id, subject_code=syl.subject_code))
+
+        db.commit()
+        return {"message": "Cohorts synced and mapped successfully", "upserted": upserted}
+    except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=400, detail=f"File parsing error: {str(e)}")

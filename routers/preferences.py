@@ -59,80 +59,85 @@ def get_all_preferences(
         prog = ProgramTypeEnum(program_type.upper())
         sem = SemesterTypeEnum(semester_type.upper())
         
-        # 1. Fetch SubjectPreferences via outerjoin to prevent null crashes
-        preferences = db.query(models.SubjectPreference, models.Faculty, models.Syllabus).outerjoin(
-            models.Faculty, models.SubjectPreference.faculty_id == models.Faculty.id
-        ).outerjoin(
-            models.Syllabus, models.SubjectPreference.subject_code == models.Syllabus.subject_code
-        ).filter(
-            models.Syllabus.program_type == prog,
-            models.Syllabus.semester_type == sem
-        ).all()
-        
-        # Calculate conflicts (subject requested by multiple faculty)
-        subject_counts = {}
-        for pref, fac, syl in preferences:
-            if syl:
-                subject_counts[syl.subject_code] = subject_counts.get(syl.subject_code, 0) + 1
-            
-        # Fetch Cohort mappings
-        cohort_mappings = db.query(models.CohortSyllabusMapping, models.Cohort).join(
+        # 1. Base query: Mappings -> Cohort -> Syllabus
+        mappings = db.query(models.CohortSyllabusMapping, models.Cohort, models.Syllabus).join(
             models.Cohort, models.CohortSyllabusMapping.cohort_id == models.Cohort.id
+        ).join(
+            models.Syllabus, models.CohortSyllabusMapping.subject_code == models.Syllabus.subject_code
         ).filter(
             models.Cohort.program_type == prog,
-            models.Cohort.semester_type == sem
+            models.Cohort.semester_type == sem,
+            models.Cohort.is_active == True,
+            models.Syllabus.is_active == True
         ).all()
         
-        mapping_dict = {}
-        for cmap, cohort in cohort_mappings:
-            if cmap.subject_code not in mapping_dict:
-                mapping_dict[cmap.subject_code] = []
-            mapping_dict[cmap.subject_code].append(cohort)
+        # 2. Fetch Preferences for these subjects
+        subject_codes = list(set([syl.subject_code for _, _, syl in mappings if syl]))
+        
+        preferences = db.query(models.SubjectPreference, models.Faculty).join(
+            models.Faculty, models.SubjectPreference.faculty_id == models.Faculty.id
+        ).filter(
+            models.SubjectPreference.subject_code.in_(subject_codes),
+            models.SubjectPreference.is_active == True,
+            models.Faculty.is_active == True
+        ).all() if subject_codes else []
+        
+        # Calculate conflicts
+        pref_by_subject = {}
+        for pref, fac in preferences:
+            if pref.subject_code not in pref_by_subject:
+                pref_by_subject[pref.subject_code] = []
+            pref_by_subject[pref.subject_code].append((pref, fac))
             
         result = []
-        for pref, fac, syl in preferences:
-            if not syl or not fac:
-                continue
-                
-            cohorts = mapping_dict.get(syl.subject_code, [])
-            has_conflict = subject_counts.get(syl.subject_code, 0) > 1
+        for cmap, cohort, syl in mappings:
+            prefs_for_sub = pref_by_subject.get(syl.subject_code, [])
+            has_conflict = len(prefs_for_sub) > 1
             
-            if not cohorts:
+            if not prefs_for_sub:
+                # No faculty picked it yet - EMPTY ROW
                 result.append({
-                    "id": f"{fac.id}-{syl.subject_code}-unassigned",
-                    "faculty_id": fac.id,
-                    "faculty_name": fac.name,
+                    "id": f"unassigned_{syl.subject_code}_{cohort.id}",
+                    "faculty_id": "",
+                    "faculty_name": "Unassigned",
                     "subject_code": syl.subject_code,
-                    "cohort_id": "",
-                    "cohort_name": "Unassigned",
+                    "cohort_id": cohort.id,
+                    "cohort_name": f"{cohort.academic_year} {cohort.class_name} - {cohort.section}",
                     "role_type": "Main",
                     "allocated_theory_hours": 0,
                     "allocated_lab_hours": 0,
-                    "max_theory": syl.theory_hours_l or 0,
-                    "max_lab": syl.practical_hours_p or 0,
-                    "has_conflict": has_conflict,
-                    "status": pref.status
+                    "max_theory": 4,
+                    "max_lab": 4,
+                    "has_conflict": False,
+                    "status": "PENDING"
                 })
             else:
-                for c in cohorts:
+                for pref, fac in prefs_for_sub:
                     result.append({
-                        "id": f"{fac.id}-{syl.subject_code}-{c.id}",
+                        "id": f"{pref.preference_id}_{cohort.id}",
+                        "preference_id": pref.preference_id,
                         "faculty_id": fac.id,
-                        "faculty_name": fac.name,
+                        "faculty_name": fac.user.email.split('@')[0],
                         "subject_code": syl.subject_code,
-                        "cohort_id": c.id,
-                        "cohort_name": f"{c.class_name} - {c.section}",
+                        "cohort_id": cohort.id,
+                        "cohort_name": f"{cohort.academic_year} {cohort.class_name} - {cohort.section}",
                         "role_type": "Main",
-                        "allocated_theory_hours": 0,
-                        "allocated_lab_hours": 0,
-                        "max_theory": syl.theory_hours_l or 0,
-                        "max_lab": syl.practical_hours_p or 0,
+                        "allocated_theory_hours": syl.theory_hours_l,
+                        "allocated_lab_hours": syl.practical_hours_p,
+                        "max_theory": fac.max_theory_hours,
+                        "max_lab": fac.max_lab_hours,
                         "has_conflict": has_conflict,
                         "status": pref.status
                     })
-                    
+        
+        # Verbose debugging
+        print(f"DEBUG MATRIX: Retuning {len(result)} rows.")
+        print(f"DEBUG MATRIX: {len(mappings)} cohort-syllabus intersections.")
+        print(f"DEBUG MATRIX: {len(preferences)} faculty preferences mapped.")
+        
         return result
     except Exception as e:
+        print(f"Error in GET preferences: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/api/faculty/form-data")
