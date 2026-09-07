@@ -1,4 +1,4 @@
-import uuid
+﻿import uuid
 from datetime import datetime
 from sqlalchemy import JSON, DateTime
 import enum
@@ -229,3 +229,5 @@ class GenerationTask(Base):
     __tablename__ = "generation_tasks"
     id = Column(String, primary_key=True)
     status = Column(String, default="PENDING")
+
+

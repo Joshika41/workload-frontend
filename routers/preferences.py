@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
@@ -50,7 +50,7 @@ def submit_preferences(prefs: List[PreferenceRequest], db: Session = Depends(get
 
 @router.get("/api/admin/preferences")
 def get_all_preferences(
-    department_id: int,
+    department_id: Optional[int] = None,
     program_type: str = "UG", 
     semester_type: str = "ODD", 
     db: Session = Depends(get_db), 
@@ -60,20 +60,93 @@ def get_all_preferences(
         prog = ProgramTypeEnum(program_type.upper())
         sem = SemesterTypeEnum(semester_type.upper())
         
-        # 1. Base query: Mappings -> Cohort -> Syllabus
-        mappings = db.query(models.CohortSyllabusMapping, models.Cohort, models.Syllabus).join(
+        # Path A: Cohort-Syllabus Mapping path (fully relational)
+        cohort_query = db.query(models.CohortSyllabusMapping, models.Cohort, models.Syllabus).join(
             models.Cohort, models.CohortSyllabusMapping.cohort_id == models.Cohort.id
         ).join(
             models.Syllabus, models.CohortSyllabusMapping.subject_code == models.Syllabus.subject_code
         ).filter(
-            models.Cohort.department_id == department_id,
             models.Cohort.program_type == prog,
             models.Cohort.semester_type == sem,
             models.Cohort.is_active == True,
             models.Syllabus.is_active == True
-        ).all()
+        )
+        if department_id is not None:
+            cohort_query = cohort_query.filter(models.Cohort.department_id == department_id)
         
-        # 2. Fetch Preferences for these subjects
+        mappings = cohort_query.all()
+
+        # Path B: Fallback - no cohorts exist yet, read syllabi directly
+        # This ensures the matrix is ALWAYS populated after a syllabus upload
+        if not mappings:
+            syllabus_q = db.query(models.Syllabus).filter(
+                models.Syllabus.program_type == prog,
+                models.Syllabus.semester_type == sem,
+                models.Syllabus.is_active == True
+            )
+            if department_id is not None:
+                syllabus_q = syllabus_q.filter(models.Syllabus.department_id == department_id)
+            direct_syllabi = syllabus_q.all()
+
+            if not direct_syllabi:
+                return []
+
+            all_subject_codes = [s.subject_code for s in direct_syllabi]
+            preferences = db.query(models.SubjectPreference, models.Faculty).join(
+                models.Faculty, models.SubjectPreference.faculty_id == models.Faculty.id
+            ).filter(
+                models.SubjectPreference.subject_code.in_(all_subject_codes),
+                models.SubjectPreference.is_active == True,
+                models.Faculty.is_active == True
+            ).all()
+
+            pref_by_subject = {}
+            for pref, fac in preferences:
+                pref_by_subject.setdefault(pref.subject_code, []).append((pref, fac))
+
+            result = []
+            for syl in direct_syllabi:
+                prefs_for_sub = pref_by_subject.get(syl.subject_code, [])
+                if not prefs_for_sub:
+                    result.append({
+                        "id": f"unassigned_{syl.subject_code}_nocohort",
+                        "faculty_id": "",
+                        "faculty_name": "Unassigned",
+                        "subject_code": syl.subject_code,
+                        "course_title": syl.course_title,
+                        "cohort_id": "",
+                        "cohort_name": "-",
+                        "role_type": "Main",
+                        "allocated_theory_hours": 0,
+                        "allocated_lab_hours": 0,
+                        "max_theory": syl.theory_hours_l or 4,
+                        "max_lab": syl.practical_hours_p or 2,
+                        "has_conflict": False,
+                        "status": "PENDING"
+                    })
+                else:
+                    for pref, fac in prefs_for_sub:
+                        result.append({
+                            "id": f"{pref.preference_id}_nocohort",
+                            "preference_id": pref.preference_id,
+                            "faculty_id": fac.id,
+                            "faculty_name": fac.name,
+                            "subject_code": syl.subject_code,
+                            "course_title": syl.course_title,
+                            "cohort_id": "",
+                            "cohort_name": "-",
+                            "role_type": "Main",
+                            "allocated_theory_hours": syl.theory_hours_l or 0,
+                            "allocated_lab_hours": syl.practical_hours_p or 0,
+                            "max_theory": getattr(fac, "max_theory_hours", 4),
+                            "max_lab": getattr(fac, "max_lab_hours", 2),
+                            "has_conflict": len(prefs_for_sub) > 1,
+                            "status": pref.status
+                        })
+            print(f"DEBUG MATRIX (fallback): {len(result)} rows from {len(direct_syllabi)} syllabi.")
+            return result
+
+        # Path A continued: Build from cohort-syllabus mappings
         subject_codes = list(set([syl.subject_code for _, _, syl in mappings if syl]))
         
         preferences = db.query(models.SubjectPreference, models.Faculty).join(
@@ -84,12 +157,9 @@ def get_all_preferences(
             models.Faculty.is_active == True
         ).all() if subject_codes else []
         
-        # Calculate conflicts
         pref_by_subject = {}
         for pref, fac in preferences:
-            if pref.subject_code not in pref_by_subject:
-                pref_by_subject[pref.subject_code] = []
-            pref_by_subject[pref.subject_code].append((pref, fac))
+            pref_by_subject.setdefault(pref.subject_code, []).append((pref, fac))
             
         result = []
         for cmap, cohort, syl in mappings:
@@ -97,19 +167,19 @@ def get_all_preferences(
             has_conflict = len(prefs_for_sub) > 1
             
             if not prefs_for_sub:
-                # No faculty picked it yet - EMPTY ROW
                 result.append({
                     "id": f"unassigned_{syl.subject_code}_{cohort.id}",
                     "faculty_id": "",
                     "faculty_name": "Unassigned",
                     "subject_code": syl.subject_code,
+                    "course_title": syl.course_title,
                     "cohort_id": cohort.id,
                     "cohort_name": f"{cohort.academic_year} {cohort.class_name} - {cohort.section}",
                     "role_type": "Main",
                     "allocated_theory_hours": 0,
                     "allocated_lab_hours": 0,
-                    "max_theory": 4,
-                    "max_lab": 4,
+                    "max_theory": syl.theory_hours_l or 4,
+                    "max_lab": syl.practical_hours_p or 2,
                     "has_conflict": False,
                     "status": "PENDING"
                 })
@@ -119,28 +189,26 @@ def get_all_preferences(
                         "id": f"{pref.preference_id}_{cohort.id}",
                         "preference_id": pref.preference_id,
                         "faculty_id": fac.id,
-                        "faculty_name": fac.user.email.split('@')[0],
+                        "faculty_name": fac.name,
                         "subject_code": syl.subject_code,
+                        "course_title": syl.course_title,
                         "cohort_id": cohort.id,
                         "cohort_name": f"{cohort.academic_year} {cohort.class_name} - {cohort.section}",
                         "role_type": "Main",
-                        "allocated_theory_hours": syl.theory_hours_l,
-                        "allocated_lab_hours": syl.practical_hours_p,
-                        "max_theory": fac.max_theory_hours,
-                        "max_lab": fac.max_lab_hours,
+                        "allocated_theory_hours": syl.theory_hours_l or 0,
+                        "allocated_lab_hours": syl.practical_hours_p or 0,
+                        "max_theory": getattr(fac, "max_theory_hours", 4),
+                        "max_lab": getattr(fac, "max_lab_hours", 2),
                         "has_conflict": has_conflict,
                         "status": pref.status
                     })
         
-        # Verbose debugging
-        print(f"DEBUG MATRIX: Retuning {len(result)} rows.")
-        print(f"DEBUG MATRIX: {len(mappings)} cohort-syllabus intersections.")
-        print(f"DEBUG MATRIX: {len(preferences)} faculty preferences mapped.")
-        
+        print(f"DEBUG MATRIX: {len(result)} rows from {len(mappings)} cohort-syllabus intersections.")
         return result
     except Exception as e:
         print(f"Error in GET preferences: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.get("/api/faculty/form-data")
 def get_faculty_form_data(
