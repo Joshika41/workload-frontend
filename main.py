@@ -13,7 +13,8 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from database import SessionLocal, Faculty, Room, Syllabus, WorkloadConfiguration, User, FacultyPreference, TimetableBlock
+from database import SessionLocal
+from models import Faculty, Room, Syllabus, User, FacultyPreference, Department, WorkloadConfiguration, TimetableBlock, GenerationTask
 from auth import verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, SECRET_KEY, ALGORITHM
 from datetime import timedelta
 from solver import solve_timetable
@@ -22,6 +23,8 @@ from data_parser import parse_seed_data
 import models
 from database import engine
 from routers.ingestion import router as ingestion_router
+from routers.departments import router as departments_router
+from routers.templates import router as templates_router
 from routers.generation import router as generation_router
 from routers.workload import router as workload_router
 from routers.preferences import router as preferences_router
@@ -50,45 +53,32 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        user_id = payload.get("sub")
+        if user_id is None:
             raise credentials_exception
     except jwt.PyJWTError:
         raise credentials_exception
-    user = db.query(User).filter(User.username == username).first()
+    user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
     return user
 
 
-from database import Department
+from models import Department
 from pydantic import BaseModel
 
 class DepartmentUpdate(BaseModel):
     has_labs: bool
 
-@app.get("/api/admin/departments")
-def get_departments(db: Session = Depends(get_db)):
-    depts = db.query(Department).all()
-    return {d.name: d.has_labs for d in depts}
 
-@app.put("/api/admin/departments/{name}")
-def update_department(name: str, payload: DepartmentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role.value not in ["ADMIN", "MASTER_ADMIN"]:
-        raise HTTPException(status_code=403, detail="Only admins can modify department settings.")
-    dept = db.query(Department).filter(Department.name == name).first()
-    if not dept:
-        dept = Department(name=name, has_labs=payload.has_labs)
-        db.add(dept)
-    else:
-        dept.has_labs = payload.has_labs
-    db.commit()
-    return {"message": "Updated successfully", "has_labs": dept.has_labs}
+
+
 
 
 @app.on_event("startup")
 def clean_zombie_tasks():
-    from database import GenerationTask, SessionLocal
+    from database import SessionLocal
+    from models import GenerationTask
     from datetime import datetime, timedelta
     db = SessionLocal()
     try:
@@ -111,6 +101,8 @@ def clean_zombie_tasks():
 
 models.Base.metadata.create_all(bind=engine)
 app.include_router(ingestion_router)
+app.include_router(departments_router)
+app.include_router(templates_router)
 app.include_router(generation_router)
 app.include_router(workload_router)
 app.include_router(preferences_router)
@@ -160,9 +152,6 @@ class FacultyWorkloadResponse(BaseModel):
     validation_status: str
     warning_message: Optional[str] = None
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
 
 class PreferenceSubmission(BaseModel):
     subjects: List[str]
@@ -177,21 +166,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 # --- Routes ---
 
-@app.post("/api/auth/login")
-def login_for_access_token(req: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == req.username).first()
-    if not user or not verify_password(req.password, user.password_hash):
-        raise HTTPException(
-            status_code=401,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username, "role": user.role.value, "faculty_id": user.faculty_id},
-        expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+
 
 @app.post("/api/faculty/preferences")
 def submit_preferences(req: PreferenceSubmission, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -286,27 +261,36 @@ def reject_preference(pref_id: int, current_user: User = Depends(get_current_use
     }
 
 @app.get("/api/admin/faculty-list")
-def get_faculty_list(current_user: User = Depends(get_current_user)):
-    if current_user.role.value != "ADMIN":
+def get_faculty_list(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if current_user.role.value not in ["ADMIN", "MASTER_ADMIN"]:
         raise HTTPException(status_code=403, detail="Only admins can view faculty list.")
     try:
-        with sqlite3.connect("university_timetable.db") as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, name, department FROM faculty")
-            rows = cursor.fetchall()
-            
+        faculty_members = db.query(
+            Faculty.id,
+            Faculty.name,
+            User.email,
+            models.Department.name.label("department_name")
+        ).outerjoin(
+            User, Faculty.user_id == User.id
+        ).outerjoin(
+            models.Department, User.department_id == models.Department.id
+        ).all()
+        
         return [
             {
-                "faculty_id": r[0],
-                "name": r[1],
-                "department": r[2],
+                "faculty_id": str(r.id),
+                "name": r.name,
+                "email": r.email if r.email else "Pending",
+                "department": r.department_name or "Unknown",
                 "theory_hours": 0,
                 "lab_hours": 0,
                 "incharge_hours": 0,
                 "max_hours_limit": 16
-            } for r in rows
+            } for r in faculty_members
         ]
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"error": str(e)}
 
 @app.post("/api/admin/generate-workload")
@@ -772,3 +756,8 @@ async def upload_metadata(
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Failed to process files: {str(e)}")
 
+
+# Force include ingestion router again to fix silent drop bug
+app.include_router(ingestion_router)
+app.include_router(departments_router)
+app.include_router(templates_router)

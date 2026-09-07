@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-from database import SessionLocal, GenerationTask
+from database import SessionLocal
+from models import GenerationTask
 import models
 from routers.auth import get_current_user, verify_admin_role
 from ortools.sat.python import cp_model

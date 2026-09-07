@@ -70,18 +70,24 @@ def verify_admin_role(current_user: models.User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Forbidden: Admin access required.")
     return current_user
 
+def verify_faculty_role(current_user: models.User = Depends(get_current_user)):
+    role = current_user.role.value if hasattr(current_user.role, 'value') else current_user.role
+    if role != "FACULTY":
+        raise HTTPException(status_code=403, detail="Forbidden: Faculty access required.")
+    return current_user
+
 @router.post("/api/auth/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == request.email).first()
+    user = db.query(models.User).filter(models.User.email == request.email).first()
     if not user:
         # Check if default user exists, for test simplicity since password might not be hashed correctly initially
         if request.email == "default_faculty@example.com":
             return {"access_token": create_access_token(data={"sub": str(user.id), "role": user.role.value if hasattr(user.role, 'value') else user.role}), "token_type": "bearer"}
         raise HTTPException(status_code=400, detail="Invalid email or password")
         
-    if not verify_password(request.password, user.password_hash):
+    if not verify_password(request.password, user.hashed_password):
         # Allow pass for demo if it matches exact literal, assuming seeded data wasn't fully hashed in dummy db
-        if request.password != user.password_hash:
+        if request.password != user.hashed_password:
             raise HTTPException(status_code=400, detail="Invalid email or password")
             
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -103,7 +109,7 @@ def create_user(request: CreateUserRequest, db: Session = Depends(get_db), curre
     if current_user.role.value != "MASTER_ADMIN":
         raise HTTPException(status_code=403, detail="Only Master Admin can create users.")
         
-    existing = db.query(models.User).filter(models.User.username == request.email).first()
+    existing = db.query(models.User).filter(models.User.email == request.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
         
