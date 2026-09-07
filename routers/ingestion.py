@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+﻿from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from sqlalchemy.orm import Session
 import pandas as pd
 import io
@@ -175,19 +175,6 @@ async def upload_syllabus_phase2(
         df.fillna("", inplace=True)
         
         batch_sync_id = uuid.uuid4().hex
-        # Relational Validation
-        prog_col = next((c for c in df.columns if 'program' in c), None)
-        sem_col = next((c for c in df.columns if 'semester' in c), None)
-        
-        for idx, row in df.iterrows():
-            if prog_col:
-                val = str(row.get(prog_col, '')).strip().upper()
-                if val and val != program_type.upper():
-                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {program_type.upper()}")
-            if sem_col:
-                val = str(row.get(sem_col, '')).strip().upper()
-                if val and val != semester_type.upper():
-                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {semester_type.upper()}")
         prog = ProgramTypeEnum(program_type.upper())
         sem = SemesterTypeEnum(semester_type.upper())
         
@@ -317,19 +304,6 @@ async def upload_cohorts_phase2(
         df.dropna(how='all', inplace=True)
         df.fillna("", inplace=True)
         
-        # Relational Validation
-        prog_col = next((c for c in df.columns if 'program' in c), None)
-        sem_col = next((c for c in df.columns if 'semester' in c), None)
-        
-        for idx, row in df.iterrows():
-            if prog_col:
-                val = str(row.get(prog_col, '')).strip().upper()
-                if val and val != program_type.upper():
-                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {program_type.upper()}")
-            if sem_col:
-                val = str(row.get(sem_col, '')).strip().upper()
-                if val and val != semester_type.upper():
-                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {semester_type.upper()}")
         prog = ProgramTypeEnum(program_type.upper())
         sem = SemesterTypeEnum(semester_type.upper())
         
@@ -438,20 +412,7 @@ class CohortUpdate(BaseModel):
 
 @router.get("/api/admin/syllabus")
 def get_syllabus(department_id: int, program_type: str, semester_type: str, db: Session = Depends(get_db), current_user: models.User = Depends(verify_admin_role)):
-    # Relational Validation
-        prog_col = next((c for c in df.columns if 'program' in c), None)
-        sem_col = next((c for c in df.columns if 'semester' in c), None)
-        
-        for idx, row in df.iterrows():
-            if prog_col:
-                val = str(row.get(prog_col, '')).strip().upper()
-                if val and val != program_type.upper():
-                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {program_type.upper()}")
-            if sem_col:
-                val = str(row.get(sem_col, '')).strip().upper()
-                if val and val != semester_type.upper():
-                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {semester_type.upper()}")
-        prog = ProgramTypeEnum(program_type.upper())
+    prog = ProgramTypeEnum(program_type.upper())
     sem = SemesterTypeEnum(semester_type.upper())
     
     # Needs to match through cohort mapping to filter by department exactly
@@ -481,20 +442,7 @@ def update_syllabus(subject_code: str, payload: SyllabusUpdate, db: Session = De
 
 @router.get("/api/admin/cohorts")
 def get_cohorts(department_id: int, program_type: str, semester_type: str, db: Session = Depends(get_db), current_user: models.User = Depends(verify_admin_role)):
-    # Relational Validation
-        prog_col = next((c for c in df.columns if 'program' in c), None)
-        sem_col = next((c for c in df.columns if 'semester' in c), None)
-        
-        for idx, row in df.iterrows():
-            if prog_col:
-                val = str(row.get(prog_col, '')).strip().upper()
-                if val and val != program_type.upper():
-                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {program_type.upper()}")
-            if sem_col:
-                val = str(row.get(sem_col, '')).strip().upper()
-                if val and val != semester_type.upper():
-                    raise HTTPException(status_code=400, detail=f"Row {idx+1} mismatch: Found {val} but expected {semester_type.upper()}")
-        prog = ProgramTypeEnum(program_type.upper())
+    prog = ProgramTypeEnum(program_type.upper())
     sem = SemesterTypeEnum(semester_type.upper())
     cohorts = db.query(models.Cohort).filter(
         models.Cohort.department_id == department_id,
@@ -515,3 +463,4 @@ def update_cohort(cohort_id: int, payload: CohortUpdate, db: Session = Depends(g
     cohort.section = payload.section
     db.commit()
     return {"message": "Cohort updated successfully"}
+

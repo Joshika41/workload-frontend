@@ -1,4 +1,4 @@
--- supabase_indexes.sql
+﻿-- supabase_indexes.sql
 -- Run this in the Supabase SQL Editor to improve Outer Join performance for the Matrix
 
 -- Indexes for Department
