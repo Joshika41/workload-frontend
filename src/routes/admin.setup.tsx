@@ -344,6 +344,165 @@ function AdminSetup() {
           />
         </div>
       </div>
+      <CurriculumManager />
     </PortalShell>
+  );
+}
+
+
+// Curriculum Manager Component
+import { useEffect, useState } from "react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Pencil } from "lucide-react";
+
+function CurriculumManager() {
+  const { programType, semesterType, activeDepartmentId } = useWorkspace();
+  const [syllabus, setSyllabus] = useState<any[]>([]);
+  const [cohorts, setCohorts] = useState<any[]>([]);
+  
+  const [editingSyl, setEditingSyl] = useState<any>(null);
+  const [editingCoh, setEditingCoh] = useState<any>(null);
+
+  const fetchCurriculum = async () => {
+    if (!activeDepartmentId || !programType || !semesterType) return;
+    try {
+      const sylRes = await api.get('/api/admin/syllabus', { params: { department_id: activeDepartmentId, program_type: programType, semester_type: semesterType }});
+      setSyllabus(sylRes.data || []);
+      
+      const cohRes = await api.get('/api/admin/cohorts', { params: { department_id: activeDepartmentId, program_type: programType, semester_type: semesterType }});
+      setCohorts(cohRes.data || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchCurriculum();
+  }, [activeDepartmentId, programType, semesterType]);
+
+  const saveSyllabus = async () => {
+    try {
+      await api.put(`/api/admin/syllabus/${editingSyl.subject_code}`, editingSyl);
+      toast.success("Syllabus updated");
+      setEditingSyl(null);
+      fetchCurriculum();
+    } catch (e) {
+      toast.error("Failed to update syllabus");
+    }
+  };
+
+  const saveCohort = async () => {
+    try {
+      await api.put(`/api/admin/cohorts/${editingCoh.id}`, editingCoh);
+      toast.success("Cohort updated");
+      setEditingCoh(null);
+      fetchCurriculum();
+    } catch (e) {
+      toast.error("Failed to update cohort");
+    }
+  };
+
+  if (!activeDepartmentId) return null;
+
+  return (
+    <div className="mt-12 space-y-8">
+      <h2 className="text-xl font-bold tracking-tight text-slate-900">Curriculum Data Manager</h2>
+      
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        {/* Syllabus Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 bg-slate-50 border-b border-slate-200 font-semibold">Syllabus</div>
+          <div className="p-0 max-h-[400px] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {syllabus.map(s => (
+                  <TableRow key={s.subject_code}>
+                    <TableCell className="font-mono text-xs">{s.subject_code}</TableCell>
+                    <TableCell>{s.course_title}</TableCell>
+                    <TableCell>
+                      <Dialog open={!!editingSyl && editingSyl.subject_code === s.subject_code} onOpenChange={(open) => !open && setEditingSyl(null)}>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="sm" onClick={() => setEditingSyl(s)}><Pencil className="w-4 h-4" /></Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader><DialogTitle>Edit Syllabus</DialogTitle></DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <Label>Course Title</Label>
+                              <Input value={editingSyl?.course_title || ''} onChange={e => setEditingSyl({...editingSyl, course_title: e.target.value})} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2"><Label>Theory Hrs</Label><Input type="number" value={editingSyl?.theory_hours_l || 0} onChange={e => setEditingSyl({...editingSyl, theory_hours_l: parseInt(e.target.value)})} /></div>
+                              <div className="space-y-2"><Label>Lab Hrs</Label><Input type="number" value={editingSyl?.practical_hours_p || 0} onChange={e => setEditingSyl({...editingSyl, practical_hours_p: parseInt(e.target.value)})} /></div>
+                              <div className="space-y-2"><Label>Credits</Label><Input type="number" value={editingSyl?.credits_c || 0} onChange={e => setEditingSyl({...editingSyl, credits_c: parseInt(e.target.value)})} /></div>
+                              <div className="space-y-2"><Label>Type</Label><Input value={editingSyl?.course_type || ''} onChange={e => setEditingSyl({...editingSyl, course_type: e.target.value})} /></div>
+                            </div>
+                            <Button onClick={saveSyllabus} className="w-full">Save Changes</Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        {/* Cohorts Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 bg-slate-50 border-b border-slate-200 font-semibold">Cohorts</div>
+          <div className="p-0 max-h-[400px] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Year</TableHead>
+                  <TableHead>Class Name</TableHead>
+                  <TableHead>Section</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cohorts.map(c => (
+                  <TableRow key={c.id}>
+                    <TableCell>{c.academic_year}</TableCell>
+                    <TableCell>{c.class_name}</TableCell>
+                    <TableCell>{c.section}</TableCell>
+                    <TableCell>
+                      <Dialog open={!!editingCoh && editingCoh.id === c.id} onOpenChange={(open) => !open && setEditingCoh(null)}>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="sm" onClick={() => setEditingCoh(c)}><Pencil className="w-4 h-4" /></Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader><DialogTitle>Edit Cohort</DialogTitle></DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2"><Label>Academic Year</Label><Input type="number" value={editingCoh?.academic_year || 1} onChange={e => setEditingCoh({...editingCoh, academic_year: parseInt(e.target.value)})} /></div>
+                              <div className="space-y-2"><Label>Section</Label><Input value={editingCoh?.section || ''} onChange={e => setEditingCoh({...editingCoh, section: e.target.value})} /></div>
+                            </div>
+                            <div className="space-y-2"><Label>Class Name</Label><Input value={editingCoh?.class_name || ''} onChange={e => setEditingCoh({...editingCoh, class_name: e.target.value})} /></div>
+                            <Button onClick={saveCohort} className="w-full">Save Changes</Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

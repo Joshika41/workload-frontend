@@ -110,7 +110,7 @@ function AdminAllocation() {
     setLoading(true);
     try {
       const res = await api.get("/api/admin/preferences", {
-        params: { program_type: programType, semester_type: semesterType },
+        params: { department_id: activeDepartmentId, program_type: programType, semester_type: semesterType },
       });
 
       const data = (res.data || []).map((item: any) => ({
@@ -268,7 +268,7 @@ function AdminAllocation() {
     setVerifyLoading(true);
     try {
       const res = await api.get("/api/admin/verify-allocations", {
-        params: { program_type: programType, semester_type: semesterType },
+        params: { department_id: activeDepartmentId, program_type: programType, semester_type: semesterType },
       });
       setUnassignedItems(res.data.issues || []);
     } catch (err: any) {
