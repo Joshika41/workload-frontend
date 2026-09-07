@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import { PortalShell } from "@/components/PortalShell";
 import { adminNav } from "@/components/portal-nav";
@@ -110,7 +110,7 @@ function AdminAllocation() {
     setLoading(true);
     try {
       const res = await api.get("/api/admin/preferences", {
-        params: { department_id: activeDepartmentId, program_type: programType, semester_type: semesterType },
+        params: { program_type: programType, semester_type: semesterType },
       });
 
       const data = (res.data || []).map((item: any) => ({
@@ -268,7 +268,7 @@ function AdminAllocation() {
     setVerifyLoading(true);
     try {
       const res = await api.get("/api/admin/verify-allocations", {
-        params: { department_id: activeDepartmentId, program_type: programType, semester_type: semesterType },
+        params: { program_type: programType, semester_type: semesterType },
       });
       setUnassignedItems(res.data.issues || []);
     } catch (err: any) {
@@ -316,7 +316,7 @@ function AdminAllocation() {
         row.allocated_theory_hours.toString(),
         row.allocated_lab_hours.toString(),
         (row.allocated_theory_hours + row.allocated_lab_hours).toString(),
-        row.has_conflict ? "⚠ CONFLICT" : "OK",
+        row.has_conflict ? "âš  CONFLICT" : "OK",
       ]);
 
       autoTable(doc, {
@@ -607,7 +607,7 @@ function AdminAllocation() {
                             </span>
                             {row.has_conflict && (
                               <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-md border border-red-200 w-fit shadow-sm animate-pulse">
-                                <ShieldAlert className="size-3" /> ⚠️ Conflict
+                                <ShieldAlert className="size-3" /> âš ï¸ Conflict
                               </span>
                             )}
                           </div>
@@ -709,7 +709,7 @@ function AdminAllocation() {
             <AlertDialogDescription>
               This will permanently clear ALL allocation data for{" "}
               <strong>
-                {programType} — {semesterType} Semester
+                {programType} â€” {semesterType} Semester
               </strong>
               . Faculty will need to resubmit their preferences. This action
               cannot be undone.
@@ -743,7 +743,7 @@ function AdminAllocation() {
             <AlertDialogDescription>
               This will finalize the{" "}
               <strong>
-                {programType} — {semesterType}
+                {programType} â€” {semesterType}
               </strong>{" "}
               workload matrix, lock it from further edits, and send email
               notifications to all assigned faculty members. Ensure all
@@ -834,3 +834,4 @@ function AdminAllocation() {
     </PortalShell>
   );
 }
+
