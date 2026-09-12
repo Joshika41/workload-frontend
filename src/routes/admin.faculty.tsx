@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+﻿import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { PortalShell } from '@/components/PortalShell';
 import { useAuth } from '@/lib/auth';
@@ -88,8 +88,7 @@ function UserAccessPanel() {
             >
               <option value='FACULTY'>Faculty</option>
               <option value='DEAN'>Dean</option>
-              <option value='MASTER_ADMIN'>Master Admin</option>
-            </select>
+              </select>
           </div>
           
           <div>
@@ -145,3 +144,4 @@ function UserAccessPanel() {
     </PortalShell>
   );
 }
+

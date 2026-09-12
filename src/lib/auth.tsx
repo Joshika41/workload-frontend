@@ -1,4 +1,4 @@
-import { toast } from "sonner";
+﻿import { toast } from "sonner";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Role } from "./erp-data";
 import api from "./api";
@@ -89,13 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const payload = jwtDecode<any>(token);
           const backendRole = payload.role.toLowerCase();
           
-          if (backendRole !== role.toLowerCase() && backendRole !== "master_admin") {
+          if (backendRole !== role.toLowerCase()) {
             return { ok: false, error: `These credentials are not valid for the ${role} portal.` };
           }
           
-          // Map backend master_admin back to frontend 'admin' role expectations if necessary
-          const mappedRole = backendRole === "master_admin" ? "admin" : backendRole as Role;
-          
+          const mappedRole = backendRole as Role;          
           const next: Session = { 
             username: email, 
             name: email.split('@')[0],
@@ -118,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       fetchDepartments: async () => {
         try {
-          if (session?.role === 'admin' || session?.role === 'master_admin') {
+          if (session?.role === 'admin' || session?.role === 'admin') {
             const res = await api.get("/api/admin/departments");
             if (Array.isArray(res.data)) {
               // Convert array to Record<string, boolean> for backward compatibility
@@ -162,3 +160,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+
