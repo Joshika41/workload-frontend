@@ -10,7 +10,6 @@ Base = declarative_base()
 
 class RoleEnum(str, enum.Enum):
     ADMIN = "ADMIN"
-    MASTER_ADMIN = "MASTER_ADMIN"
     DEAN = "DEAN"
     COORDINATOR = "COORDINATOR"
     FACULTY = "FACULTY"
@@ -229,5 +228,6 @@ class GenerationTask(Base):
     __tablename__ = "generation_tasks"
     id = Column(String, primary_key=True)
     status = Column(String, default="PENDING")
+
 
 
